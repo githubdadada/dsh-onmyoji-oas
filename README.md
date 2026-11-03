@@ -45,7 +45,7 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#main"
 
 ```text
 plugin_manager remove_bundle target="@local/dsh-onmyoji-console"
-plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.5.0"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.5.1"
 ```
 
 若结果返回 `restart-required`（替换已运行的包且未启用 HMR），重启 DSH 后生效。
@@ -85,6 +85,7 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.5.0
 - `baselineDir`：基线存放目录；默认 `~/.dsh/onmyoji-oas/baselines`。
 - `backendDir`：便携后端安装目录；默认 `~/.dsh/onmyoji-oas/backend`。
 - `consoleBundleUrl`：便携后端包地址；`{platform}` 会替换为 `darwin-arm64` / `win32-x64` 等。
+- `consoleBundleSha256`（环境变量 `ONMYOJI_CONSOLE_SHA256`）：可信的核心包 SHA256。当前 darwin-arm64 内置下文校验值；其他平台或更换包内容时须明确配置。只更换 CDN 地址、文件内容不变时沿用同一 SHA；发布新内容须同步更新校验值，不能使用下载响应自身提供的 hash 当信任来源。
 - `localLlmUrl`：可选本地 LLM 运行时模块地址；不装不影响核心 OAS 功能。
 - 修改配置文件后需要重新加载插件（或重启 DSH）才会生效。
 
@@ -138,9 +139,9 @@ git -C /Users/psd/Documents/mimo-onmyoji-OAS/data/oas_mirror.git \
 解压到 `backendDir` 并启动；包内是 Python runtime + 控制台 + OAS + adb，
 用户不需要装 Python、也不需要 macOS 应用。
 
-- 打开「诊断 → 便携后端」或离线首页，点「一键安装后端」；首次约 700MB。
-- 安装完成后自动启动；之后用「启动后端 / 停止后端」。
-- OAS 更新用下方「OAS 运行时」；升级后端包重新安装即可。
+- 打开「诊断 → 便携后端」或离线首页安装；macOS arm64 核心约 534MiB。已有可启动源码时，离线首页优先提供源码启动入口。
+- 安装与启动分开；完整校验、暂存解压并切换成功后，再点「启动后端」。当前已连接其他服务时不启动第二个便携后端。
+- 当前安装器拒绝覆盖完整安装；不提供一键升级/降级承诺。修复不完整安装时原程序文件保留在 `backups/`，数据与模块目录不参与切换；不能把备份存在等同于自动恢复完成。
 - 包内布局：`runtime/`、`console/`、`platform-tools/`、`run.sh`、`manifest.json`。
   Windows 包用 `runtime/python.exe`，同样布局。
 
@@ -151,7 +152,7 @@ dist/console-backend-darwin-arm64.tar.gz
 ```
 
 > v1.4.0 是全量包（含本地 LLM，736MB）；v1.5.0 起默认包不再包含本地 LLM。
-> 需要本地 LLM 的用户可以使用 v1.4.0 的全量资产。
+> 需要本地 LLM 时使用下文可选组件，无需回退旧全量包。
 
 把它作为 GitHub Release 资产上传到默认仓库：
 
@@ -186,8 +187,9 @@ SHA256: db5a33ca70e05ccbe7eb1336514a65b6f48d083fd3c45d130f437bab738c1587
 
 - 大小约 **157MB**：torch / transformers / accelerate 等运行时依赖。
 - **模型文件不在组件内**：可放到 `<backendDir>/console/Qwen_Qwen2.5-1.5B-Instruct`，
-  或在控制台配置 Ollama。
-- 安装/移除后需要重启便携后端才会生效。
+  并确保模型文件完整。
+- 安装只表示文件到位；便携后端启动时挂载依赖，UI 区分安装状态与当前进程的挂载状态。模块仍不包含模型，也不代表模型已加载。
+- 先停止便携后端再移除组件；核心、模块安装及进程维护互斥。源码后端不会通过便携模块目录自动获得依赖。
 - 组件安装在 `<backendDir>/modules/local-llm/1.0.0`，后端启动时自动加入 `PYTHONPATH`；
   不安装不影响 OAS 日常任务。
 
@@ -208,6 +210,8 @@ SHA256: 9c61384bd903a00caafb9f9e9ee2005e2c56bc6a041969d4544d8d41f9cfc21b
 两种模式可以共存；`root` 的源码后端和便携后端谁在 8787 上跑，插件就连谁。
 
 ## OAS 基线（离线保底）
+
+新基线包含 HEAD 到当前工作树的 binary patch（含暂存与未暂存内容），恢复后这些内容统一作为工作树修改，不重建原暂存区分组。bundle、patch、未跟踪归档各自记录 SHA，并在克隆前校验；旧基线缺少的补丁校验值无法补推验证。有恢复警告时返回部分失败，新恢复目录保留供检查，现有 OAS 不被覆盖。
 
 诊断页的「OAS 基线」卡片把当前 OAS 做成一份可离线恢复的快照：
 
@@ -257,8 +261,8 @@ gh repo create dsh-onmyoji-oas --public --source=. --remote=origin --push
 发版本：
 
 ```bash
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.5.1
+git push origin v1.5.1
 ```
 
 然后即可用 `#v1.1.0` 安装。
@@ -281,6 +285,7 @@ git push origin v1.5.0
 
 ```bash
 npm run check          # node --check index.js client.js
+npm test               # 离线函数/临时归档、仓库、进程与本机端口回归，无模拟器
 npm pack --dry-run     # 查看会随包发布的文件
 ```
 

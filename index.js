@@ -28,6 +28,10 @@ import { createHash } from 'node:crypto'
 import {
   appendFileSync,
   chmodSync,
+  closeSync,
+  fstatSync,
+  readSync,
+  mkdtempSync,
   copyFileSync,
   createReadStream,
   createWriteStream,
@@ -35,6 +39,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -46,6 +51,7 @@ import { get as httpGet, request as httpRequest } from 'node:http'
 import { get as httpsGet, request as httpsRequest } from 'node:https'
 import { homedir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
+import { createConnection } from 'node:net'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
@@ -60,6 +66,7 @@ const DEFAULT_OAS_MIRROR = 'https://github.com/githubdadada/OnmyojiAutoScript.gi
 const DEFAULT_BACKEND_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'backend')
 const DEFAULT_CONSOLE_BUNDLE = 'https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz'
 const DEFAULT_BASELINE_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'baselines')
+const CORE_BUILDS = { 'darwin-arm64': { version: '1.5.0', sha256: 'db5a33ca70e05ccbe7eb1336514a65b6f48d083fd3c45d130f437bab738c1587' } }
 const installStates = new Map()
 const DEFAULT_LOCAL_LLM_URL = 'https://github.com/githubdadada/onmyoji-backend/releases/download/local-llm-v1.0.0/local-llm-{platform}.tar.gz'
 const MODULE_DEFS = [
@@ -68,7 +75,7 @@ const MODULE_DEFS = [
     name: '本地 LLM 运行时',
     version: '1.0.0',
     requiresCore: '1.5.0',
-    description: 'torch / transformers / accelerate 等本地 LLM 依赖；模型文件需单独放置，或使用 Ollama。',
+    description: 'torch / transformers / accelerate 等本地 LLM 依赖；模型文件需单独放置。',
     urlTemplate: DEFAULT_LOCAL_LLM_URL,
     platforms: {
       'darwin-arm64': { size: 164294411, sha256: '9c61384bd903a00caafb9f9e9ee2005e2c56bc6a041969d4544d8d41f9cfc21b' },
@@ -76,6 +83,7 @@ const MODULE_DEFS = [
   },
 ]
 const moduleStates = new Map()
+const runtimeOperations = new Set()
 const NO_ROOT_MESSAGE = `未找到 OAS 控制台目录（需要 start.sh 与 web/server.py）。请先启动控制台，或在 ${CONFIG_PATH} 中配置 root。`
 
 function readConfigFile() {
@@ -116,7 +124,7 @@ function findRoot(explicit) {
 
 /** The OAS git checkout inside (or beside) the console checkout. */
 function findOasRoot(explicit, consoleRoot, file) {
-  const candidates = [explicit, process.env.ONMYOJI_OAS_ROOT, file.oasRoot]
+  const candidates = [file.oasRoot, process.env.ONMYOJI_OAS_ROOT, explicit]
   if (consoleRoot) {
     candidates.push(join(consoleRoot, 'OAS'))
     candidates.push(consoleRoot)
@@ -133,58 +141,59 @@ function findOasRoot(explicit, consoleRoot, file) {
 function resolveSettings(rowConfig) {
   const file = readConfigFile()
   const consoleUrl = normalizeConsoleUrl(
-    rowConfig?.consoleUrl
+    file.consoleUrl
       || process.env.ONMYOJI_CONSOLE_URL
-      || file.consoleUrl
+      || rowConfig?.consoleUrl
       || DEFAULT_CONSOLE_URL,
   ) || normalizeConsoleUrl(DEFAULT_CONSOLE_URL)
   const basePath = consoleUrl.pathname.replace(/\/+$/, '')
   const consoleHref = `${consoleUrl.origin}${basePath}`
   const port = Number(consoleUrl.port || (consoleUrl.protocol === 'https:' ? 443 : 80))
-  const root = findRoot(rowConfig?.root || process.env.ONMYOJI_ROOT || file.root)
+  const root = findRoot(file.root || process.env.ONMYOJI_ROOT || rowConfig?.root)
   const existingOas = findOasRoot(rowConfig?.oasRoot, root, file)
   const oasRoot = existingOas
     || (root ? join(root, 'OAS') : join(homedir(), '.dsh', 'onmyoji-oas', 'OAS'))
   const oasMirrorUrl = String(
-    process.env.ONMYOJI_OAS_MIRROR
-      || file.oasMirrorUrl
+    file.oasMirrorUrl
+      || process.env.ONMYOJI_OAS_MIRROR
       || rowConfig?.oasMirrorUrl
       || DEFAULT_OAS_MIRROR,
   ).trim()
   const oasBranch = String(
-    rowConfig?.oasBranch
+    file.oasBranch
       || process.env.ONMYOJI_OAS_BRANCH
-      || file.oasBranch
+      || rowConfig?.oasBranch
       || 'dev',
   ).trim() || 'dev'
   const baselineDir = resolve(
-    rowConfig?.baselineDir
+    file.baselineDir
       || process.env.ONMYOJI_BASELINE_DIR
-      || file.baselineDir
+      || rowConfig?.baselineDir
       || DEFAULT_BASELINE_DIR,
   )
   const backendDir = resolve(
-    rowConfig?.backendDir
+    file.backendDir
       || process.env.ONMYOJI_BACKEND_DIR
-      || file.backendDir
+      || rowConfig?.backendDir
       || DEFAULT_BACKEND_DIR,
   )
   const consoleBundleUrl = String(
-    rowConfig?.consoleBundleUrl
+    file.consoleBundleUrl
       || process.env.ONMYOJI_CONSOLE_BUNDLE
-      || file.consoleBundleUrl
+      || rowConfig?.consoleBundleUrl
       || DEFAULT_CONSOLE_BUNDLE,
   ).trim().replace(/\{platform\}/g, `${process.platform}-${process.arch}`)
   const localLlmUrl = String(
-    rowConfig?.localLlmUrl
+    file.localLlmUrl
       || process.env.ONMYOJI_LOCAL_LLM_URL
-      || file.localLlmUrl
+      || rowConfig?.localLlmUrl
       || DEFAULT_LOCAL_LLM_URL,
   ).trim().replace(/\{platform\}/g, `${process.platform}-${process.arch}`)
   return {
     consoleUrl, basePath, consoleHref, port, root,
     oasRoot, oasMirrorUrl, oasBranch, baselineDir,
     backendDir, consoleBundleUrl, localLlmUrl,
+    consoleBundleSha256: String(file.consoleBundleSha256 || process.env.ONMYOJI_CONSOLE_SHA256 || rowConfig?.consoleBundleSha256 || CORE_BUILDS[`${process.platform}-${process.arch}`]?.sha256 || ''),
     configPath: CONFIG_PATH,
   }
 }
@@ -230,7 +239,7 @@ function sendJSON(res, status, value) {
   res.end(JSON.stringify(value))
 }
 
-function runScript(root, args, port, timeoutMs = 25000) {
+function runScript(root, args, port, timeoutMs = 165000) {
   return new Promise((resolvePromise) => {
     const script = process.platform === 'win32' ? 'bash' : '/bin/bash'
     let settled = false
@@ -275,10 +284,7 @@ function proxyRequest(req, res, settings) {
     return
   }
 
-  const headers = { ...req.headers }
-  delete headers.host
-  delete headers.connection
-  delete headers['keep-alive']
+  const headers = Object.fromEntries(['accept', 'accept-language', 'content-type', 'content-length', 'cache-control'].filter((key) => req.headers[key] !== undefined).map((key) => [key, req.headers[key]]))
 
   const requester = requestFor(settings.consoleUrl.protocol)
   const upstream = requester({
@@ -288,10 +294,13 @@ function proxyRequest(req, res, settings) {
     method: req.method,
     path: target,
     headers,
+    timeout: 180000,
   }, (up) => {
     res.writeHead(up.statusCode ?? 502, up.headers)
     up.pipe(res)
   })
+  upstream.on('timeout', () => upstream.destroy(new Error('proxy timeout')))
+  res.on('close', () => { if (!res.writableEnded) upstream.destroy() })
   upstream.on('error', (error) => {
     sendJSON(res, 502, {
       ok: false,
@@ -528,7 +537,7 @@ async function createBaseline(settings) {
 
   const warnings = []
   let trackedPatch = ''
-  const diff = await gitText(settings.oasRoot, ['diff', '--binary'], 60000)
+  const diff = await gitText(settings.oasRoot, ['diff', '--binary', 'HEAD'], 60000)
   if (diff.ok && diff.stdout.trim()) {
     trackedPatch = join(settings.baselineDir, `${base}.patch`)
     writeFileSync(trackedPatch, diff.stdout)
@@ -538,9 +547,9 @@ async function createBaseline(settings) {
 
   let untrackedArchive = ''
   let untrackedCount = 0
-  const untracked = await gitText(settings.oasRoot, ['ls-files', '--others', '--exclude-standard'], 60000)
+  const untracked = await gitText(settings.oasRoot, ['ls-files', '--others', '--exclude-standard', '-z'], 60000)
   if (untracked.ok) {
-    const files = untracked.stdout.split('\n').map((line) => line.trim()).filter((file) => (
+    const files = untracked.stdout.split('\0').filter((file) => (
       file
       && !file.startsWith('data/')
       && !file.includes('__pycache__')
@@ -550,9 +559,9 @@ async function createBaseline(settings) {
     untrackedCount = files.length
     if (files.length) {
       const listFile = join(settings.baselineDir, `${base}.untracked.txt`)
-      writeFileSync(listFile, files.join('\n') + '\n')
+      writeFileSync(listFile, files.join('\0') + '\0')
       const archive = join(settings.baselineDir, `${base}.untracked.tar.gz`)
-      const tar = await execText('tar', ['-czf', archive, '-C', settings.oasRoot, '-T', listFile], 120000)
+      const tar = await execText('tar', ['-czf', archive, '-C', settings.oasRoot, '--null', '-T', listFile], 120000)
       if (tar.ok) untrackedArchive = archive
       else warnings.push(`未跟踪文件归档失败：${tar.stderr || tar.message}`)
     }
@@ -572,7 +581,9 @@ async function createBaseline(settings) {
     created_at: new Date().toISOString(),
     dirty_count: dirtyCount,
     tracked_patch: trackedPatch,
+    tracked_patch_sha256: trackedPatch ? await sha256File(trackedPatch) : '',
     untracked_archive: untrackedArchive,
+    untracked_archive_sha256: untrackedArchive ? await sha256File(untrackedArchive) : '',
     untracked_count: untrackedCount,
     warnings,
   }
@@ -588,6 +599,13 @@ async function restoreBaseline(settings, name) {
   if (!existsSync(manifestPath)) throw new Error(`基线不存在：${name}`)
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
   if (!manifest.bundle || !existsSync(manifest.bundle)) throw new Error('基线 bundle 文件不存在')
+  for (const [field, hashField] of [['bundle', 'sha256'], ['tracked_patch', 'tracked_patch_sha256'], ['untracked_archive', 'untracked_archive_sha256']]) {
+    const file = manifest[field]
+    if (!file) continue
+    if (!existsSync(file)) throw new Error('基线文件不完整，未开始恢复')
+    if (dirname(realpathSync(file)) !== realpathSync(settings.baselineDir)) throw new Error('基线文件路径越界，未开始恢复')
+    if (manifest[hashField] && await sha256File(file) !== manifest[hashField]) throw new Error('基线校验失败，未开始恢复')
+  }
 
   const target = join(dirname(settings.oasRoot), `OAS-restored-${fileStamp()}`)
   if (existsSync(target)) throw new Error(`恢复目标已存在：${target}`)
@@ -596,7 +614,7 @@ async function restoreBaseline(settings, name) {
   const cloned = await execText('git', ['clone', '--no-hardlinks', manifest.bundle, target], 240000)
   if (!cloned.ok) throw new Error(`从基线克隆失败：${cloned.stderr || cloned.message}`)
 
-  if (manifest.branch) {
+  if (manifest.branch && manifest.branch !== 'HEAD' && !manifest.branch.startsWith('-')) {
     const checkout = await gitText(target, ['checkout', '-f', manifest.branch], 60000)
     if (!checkout.ok) warnings.push(`切换分支 ${manifest.branch} 失败：${checkout.stderr || checkout.message}`)
   }
@@ -605,18 +623,20 @@ async function restoreBaseline(settings, name) {
     if (!applied.ok) warnings.push(`工作树 patch 应用失败：${applied.stderr || applied.message}`)
   }
   if (manifest.untracked_archive && existsSync(manifest.untracked_archive)) {
+    await checkArchiveNames(manifest.untracked_archive)
     const extracted = await execText('tar', ['-xzf', manifest.untracked_archive, '-C', target], 120000)
     if (!extracted.ok) warnings.push(`未跟踪文件恢复失败：${extracted.stderr || extracted.message}`)
   }
 
   return {
-    ok: true,
+    ok: warnings.length === 0,
+    partial: warnings.length > 0,
     name,
     target,
     branch: manifest.branch,
     commit: manifest.commit,
     warnings,
-    message: `已恢复到 ${target}（不覆盖现有 OAS；确认后手动替换或配置 oasRoot）`,
+    message: `${warnings.length ? '部分恢复，请核对警告：' : '已恢复到 '}${target}（不覆盖现有 OAS；确认后手动替换或配置 oasRoot）`,
   }
 }
 
@@ -766,11 +786,15 @@ function logRuntime(backendDir, message) {
 }
 
 function tailFile(file, limit = 8000) {
+  let fd
   try {
-    return readFileSync(file, 'utf8').slice(-limit)
-  } catch {
-    return ''
-  }
+    fd = openSync(file, 'r')
+    const size = fstatSync(fd).size
+    const bytes = Buffer.alloc(Math.min(size, limit))
+    readSync(fd, bytes, 0, bytes.length, Math.max(0, size - bytes.length))
+    return bytes.toString('utf8')
+  } catch { return '' }
+  finally { if (fd !== undefined) closeSync(fd) }
 }
 
 function downloadHttp(url, dest, redirects = 0, timeoutMs = 1800000) {
@@ -820,7 +844,19 @@ async function downloadToFile(source, dest, timeoutMs = 1800000) {
   return downloadHttp(source, dest, 0, timeoutMs)
 }
 
+async function checkArchiveNames(archive) {
+  const listing = await execText('tar', ['-tf', archive], 300000)
+  if (!listing.ok) throw new Error('归档目录读取失败，未开始解压')
+  for (const raw of listing.stdout.split('\n')) {
+    const name = raw.replaceAll('\\', '/')
+    if (name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.split('/').includes('..')) {
+      throw new Error('归档含不安全路径，未开始解压')
+    }
+  }
+}
+
 async function extractArchive(archive, dest) {
+  await checkArchiveNames(archive)
   mkdirSync(dest, { recursive: true })
   const lower = archive.toLowerCase()
   const isZip = lower.endsWith('.zip')
@@ -926,9 +962,12 @@ async function backendRuntimeStatus(settings) {
   const runtimePython = process.platform === 'win32'
     ? join(settings.backendDir, 'runtime', 'python.exe')
     : join(settings.backendDir, 'runtime', 'bin', 'python3')
-  const installed = existsSync(join(consoleDir, 'web', 'server.py')) && existsSync(runtimePython)
+  const installed = existsSync(join(consoleDir, 'web', 'server.py')) && existsSync(runtimePython) && existsSync(join(settings.backendDir, 'installed.json'))
   const oasInstalled = existsSync(join(consoleDir, 'OAS', '.git'))
   const health = installed ? await probeHealth(settings) : { ok: false }
+  const running = Boolean(health.ok && (health.health?.instance
+    ? health.health.instance.kind === 'portable' && resolve(health.health.instance.root || '.') === resolve(consoleDir)
+    : await ownsPortablePort(settings)))
   const state = installStates.get(settings.backendDir)
   let manifest
   try {
@@ -943,64 +982,72 @@ async function backendRuntimeStatus(settings) {
     runtimePython,
     installed,
     oasInstalled,
-    running: health.ok,
+    running,
+    connectedInstance: health.health?.instance || null,
     installing: Boolean(state && state.running),
     installError: state ? (state.error || '') : '',
     platform: `${process.platform}-${process.arch}`,
     consoleBundleUrl: settings.consoleBundleUrl,
     oasMirrorUrl: settings.oasMirrorUrl,
-    canInstall: !installed && !(state && state.running) && Boolean(settings.consoleBundleUrl),
+    canInstall: !installed && !(state && state.running) && Boolean(settings.consoleBundleUrl) && /^[a-f0-9]{64}$/i.test(settings.consoleBundleSha256 || ''),
     manifest,
     log: tailFile(join(settings.backendDir, 'install.log'), 8000),
     message: installed
-      ? (health.ok ? '后端已安装并运行' : '后端已安装，未运行')
+      ? (running ? '后端已安装并运行' : '后端已安装，未运行或来源未确认')
       : (state && state.running ? '后端安装中' : '后端尚未安装'),
   }
 }
 
 async function installBackendRuntimeAsync(settings) {
-  if (!settings.consoleBundleUrl) throw new Error('未配置 consoleBundleUrl')
+  if (!/^[a-f0-9]{64}$/i.test(settings.consoleBundleSha256 || '')) throw new Error('缺少可信的核心包 SHA256；请更新插件或配置 consoleBundleSha256')
   mkdirSync(settings.backendDir, { recursive: true })
-  const logFile = join(settings.backendDir, 'install.log')
-  appendFileSync(logFile, `\n=== install ${new Date().toISOString()} ===\n`)
   const current = await backendRuntimeStatus(settings)
-  if (current.installed) return { ...current, ok: true, message: '后端已安装' }
-
-  const zip = settings.consoleBundleUrl.toLowerCase().endsWith('.zip')
-  const archive = join(settings.backendDir, zip ? 'console-backend.zip' : 'console-backend.tar.gz')
-  logRuntime(settings.backendDir, `download ${settings.consoleBundleUrl}`)
-  await downloadToFile(settings.consoleBundleUrl, archive)
-
-  for (const entry of ['console', 'runtime', 'platform-tools', 'run.sh', 'manifest.json']) {
-    rmSync(join(settings.backendDir, entry), { recursive: true, force: true })
-  }
-  logRuntime(settings.backendDir, 'extract bundle')
-  await extractArchive(archive, settings.backendDir)
-
-  const runtimePython = process.platform === 'win32'
-    ? join(settings.backendDir, 'runtime', 'python.exe')
-    : join(settings.backendDir, 'runtime', 'bin', 'python3')
-  if (!existsSync(join(settings.backendDir, 'console', 'web', 'server.py'))) {
-    throw new Error('后端包缺少 console/web/server.py')
-  }
-  if (!existsSync(runtimePython)) {
-    throw new Error(`后端包缺少对应平台的 runtime（期望 ${runtimePython}）`)
-  }
-  writeFileSync(join(settings.backendDir, 'installed.json'), JSON.stringify({
-    platform: `${process.platform}-${process.arch}`,
-    consoleBundleUrl: settings.consoleBundleUrl,
-    installed_at: new Date().toISOString(),
-  }, null, 2))
-  logRuntime(settings.backendDir, 'install done')
-  return {
-    ...(await backendRuntimeStatus(settings)),
-    ok: true,
-    message: '后端安装完成，可以点击启动',
-  }
+  if (current.installed) return { ...current, message: '后端已安装' }
+  const stage = mkdtempSync(join(settings.backendDir, '.core-stage-'))
+  const archive = join(stage, 'download.tar.gz')
+  const content = join(stage, 'content')
+  const entries = ['console', 'runtime', 'platform-tools', 'run.sh', 'manifest.json', 'installed.json']
+  const movedOld = [], movedNew = []
+  let backup
+  try {
+    logRuntime(settings.backendDir, 'download core bundle')
+    await downloadToFile(settings.consoleBundleUrl, archive)
+    const hash = await sha256File(archive)
+    if (hash.toLowerCase() !== settings.consoleBundleSha256.toLowerCase()) throw new Error('核心包 SHA256 校验失败，未修改已有安装')
+    logRuntime(settings.backendDir, 'verify and extract core bundle')
+    await extractArchive(archive, content)
+    const manifest = JSON.parse(readFileSync(join(content, 'manifest.json'), 'utf8'))
+    if (manifest.platform !== `${process.platform}-${process.arch}`) throw new Error('核心包平台不匹配')
+    const python = process.platform === 'win32' ? join(content, 'runtime', 'python.exe') : join(content, 'runtime', 'bin', 'python3')
+    if (!existsSync(python) || !existsSync(join(content, 'console', 'web', 'server.py'))) throw new Error('核心包缺少 Python 或控制台入口')
+    writeFileSync(join(content, 'installed.json'), JSON.stringify({ platform: manifest.platform, sha256: hash,
+      version: CORE_BUILDS[manifest.platform]?.version || manifest.version || 'unknown', installed_at: new Date().toISOString() }, null, 2))
+    backup = join(settings.backendDir, 'backups', 'core-' + Date.now())
+    mkdirSync(backup, { recursive: true })
+    for (const entry of entries) {
+      const old = join(settings.backendDir, entry)
+      if (existsSync(old)) { renameSync(old, join(backup, entry)); movedOld.push(entry) }
+      const next = join(content, entry)
+      if (existsSync(next)) { renameSync(next, old); movedNew.push(entry) }
+    }
+    logRuntime(settings.backendDir, 'core installation committed; previous files retained in backups')
+    return { ...(await backendRuntimeStatus(settings)), ok: true, message: '核心包已校验并安装；原文件保留在 backups', backup }
+  } catch (error) {
+    const recovery = []
+    for (const entry of movedNew.reverse()) {
+      try { renameSync(join(settings.backendDir, entry), join(content, entry)) } catch (e) { recovery.push(e.message) }
+    }
+    for (const entry of movedOld.reverse()) {
+      try { renameSync(join(backup, entry), join(settings.backendDir, entry)) } catch (e) { recovery.push(e.message) }
+    }
+    if (recovery.length) throw new Error(`${error.message}；回退未完成，原文件保留于 ${backup}`)
+    throw error
+  } finally { rmSync(stage, { recursive: true, force: true }) }
 }
 
 function beginBackendInstall(settings) {
   const key = settings.backendDir
+  if (runtimeOperations.has(key) || [...moduleStates.entries()].some(([id, state]) => id.startsWith(key + ':') && state.running)) throw new Error('已有维护操作，请稍后重试')
   const existing = installStates.get(key)
   if (existing && existing.running) {
     return { ok: true, installing: true, message: '后端安装正在进行' }
@@ -1022,11 +1069,14 @@ function beginBackendInstall(settings) {
 
 function moduleDefs(settings) {
   const platform = `${process.platform}-${process.arch}`
+  const coreVersion = installedCoreVersion(settings)
   return MODULE_DEFS.map((def) => {
     const meta = def.platforms[platform]
     const dir = join(settings.backendDir, 'modules', def.id, def.version)
-    const installed = Boolean(meta) && existsSync(join(dir, 'manifest.json'))
-    const state = moduleStates.get(def.id)
+    const complete = existsSync(join(dir, 'manifest.json')) && existsSync(join(dir, 'installed.json'))
+    const installed = Boolean(meta) && complete
+    const coreReady = Boolean(coreVersion) && versionAtLeast(coreVersion, def.requiresCore || '0')
+    const state = moduleStates.get(settings.backendDir + ':' + def.id)
     const url = (def.id === 'local-llm' ? settings.localLlmUrl : def.urlTemplate.replace(/\{platform\}/g, platform)) || ''
     return {
       id: def.id,
@@ -1044,15 +1094,39 @@ function moduleDefs(settings) {
       installing: Boolean(state && state.running),
       error: state ? (state.error || '') : '',
       url,
-      canInstall: Boolean(meta) && !installed && !(state && state.running) && Boolean(url),
+      coreVersion,
+      coreReady,
+      canInstall: Boolean(meta) && coreReady && !installed && !(state && state.running) && Boolean(url),
       model: def.id === 'local-llm'
         ? {
             path: join(settings.backendDir, 'console', 'Qwen_Qwen2.5-1.5B-Instruct'),
-            note: '模型文件不包含在组件内；可放到该目录，或使用 Ollama。',
+            note: '模型文件不包含在组件内；可放到该目录。',
           }
         : undefined,
     }
   })
+}
+
+function versionAtLeast(current, required) {
+  const parse = (value) => String(value || '').replace(/^v/i, '').split(/[.-]/).map((part) => Number(part) || 0)
+  const left = parse(current)
+  const right = parse(required)
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const a = left[index] || 0
+    const b = right[index] || 0
+    if (a > b) return true
+    if (a < b) return false
+  }
+  return true
+}
+
+function installedCoreVersion(settings) {
+  try {
+    const installed = JSON.parse(readFileSync(join(settings.backendDir, 'installed.json'), 'utf8'))
+    return String(installed.version || '')
+  } catch {
+    return ''
+  }
 }
 
 function moduleStatus(settings) {
@@ -1079,7 +1153,7 @@ async function installModuleAsync(settings, def) {
   logRuntime(settings.backendDir, `module ${def.id}: download ${def.url}`)
   try {
     await downloadToFile(def.url, archive)
-    const hash = createHash('sha256').update(readFileSync(archive)).digest('hex')
+    const hash = await sha256File(archive)
     if (def.sha256 && hash.toLowerCase() !== def.sha256.toLowerCase()) {
       throw new Error(`组件 SHA256 校验失败（期望 ${def.sha256}，实际 ${hash}）`)
     }
@@ -1087,17 +1161,37 @@ async function installModuleAsync(settings, def) {
     if (!existsSync(join(staging, 'manifest.json')) || !existsSync(join(staging, 'site-packages'))) {
       throw new Error('组件包缺少 manifest.json 或 site-packages')
     }
+    const manifest = JSON.parse(readFileSync(join(staging, 'manifest.json'), 'utf8'))
+    if (manifest.id !== def.id || manifest.version !== def.version || manifest.platform !== def.platform) throw new Error('组件 manifest 与当前平台或版本不匹配')
+    const coreVersion = installedCoreVersion(settings)
+    if (!coreVersion) throw new Error('核心包缺少完成标记，请先完整安装核心包')
+    if (def.requiresCore && !versionAtLeast(coreVersion, def.requiresCore)) {
+      throw new Error(`组件需要核心 ${def.requiresCore} 或更高版本，当前为 ${coreVersion}`)
+    }
     const target = join(modulesDir, def.id, def.version)
-    rmSync(target, { recursive: true, force: true })
-    mkdirSync(dirname(target), { recursive: true })
-    renameSync(staging, target)
-    writeFileSync(join(target, 'installed.json'), JSON.stringify({
+    const backup = `${target}.backup-${Date.now()}`
+    const hadOld = existsSync(target)
+    // 完成标记必须和内容一起进入 staging；写失败时旧版本保持不动。
+    writeFileSync(join(staging, 'installed.json'), JSON.stringify({
       installed_at: new Date().toISOString(),
       source: def.url,
       sha256: hash,
       size: def.size,
       platform: def.platform,
+      core_version: coreVersion,
     }, null, 2))
+    if (hadOld) renameSync(target, backup)
+    try {
+      mkdirSync(dirname(target), { recursive: true })
+      renameSync(staging, target)
+    } catch (error) {
+      rmSync(target, { recursive: true, force: true })
+      if (hadOld && existsSync(backup)) renameSync(backup, target)
+      throw error
+    }
+    if (hadOld) {
+      try { rmSync(backup, { recursive: true, force: true }) } catch { /* 旧版保留，不影响已提交的新版 */ }
+    }
     logRuntime(settings.backendDir, `module ${def.id}: installed`)
   } finally {
     rmSync(archive, { force: true })
@@ -1110,12 +1204,12 @@ function beginModuleInstall(settings, id) {
   if (!def) throw new Error(`未知组件：${id}`)
   if (!def.supported) throw new Error('当前平台暂不支持该组件')
   if (def.installed) return { ok: true, installed: true, message: '组件已安装' }
-  const existing = moduleStates.get(id)
+  const existing = moduleStates.get(settings.backendDir + ':' + id)
   if (existing && existing.running) {
     return { ok: true, installing: true, message: '组件安装正在进行' }
   }
   const state = { running: true, error: '' }
-  moduleStates.set(id, state)
+  moduleStates.set(settings.backendDir + ':' + id, state)
   installModuleAsync(settings, def)
     .then(() => {
       state.running = false
@@ -1132,10 +1226,10 @@ function beginModuleInstall(settings, id) {
 function removeModule(settings, id) {
   const def = moduleDefs(settings).find((item) => item.id === id)
   if (!def) throw new Error(`未知组件：${id}`)
-  const state = moduleStates.get(id)
+  const state = moduleStates.get(settings.backendDir + ':' + id)
   if (state && state.running) throw new Error('组件正在安装，稍后再移除')
   rmSync(join(settings.backendDir, 'modules', id), { recursive: true, force: true })
-  moduleStates.delete(id)
+  moduleStates.delete(settings.backendDir + ':' + id)
   return { ok: true, message: '组件已移除；重启便携后端后完全生效' }
 }
 
@@ -1148,11 +1242,19 @@ async function handleModules(req, res, settings) {
       return
     }
     if (req.method === 'POST' && action === 'install') {
+      if (runtimeOperations.has(settings.backendDir) || installStates.get(settings.backendDir)?.running) throw new Error('已有后端维护操作，请稍后重试')
+      if (!existsSync(join(settings.backendDir, 'installed.json'))) throw new Error('请先完整安装核心包')
       sendJSON(res, 200, beginModuleInstall(settings, url.searchParams.get('id') || 'local-llm'))
       return
     }
     if (req.method === 'POST' && action === 'remove') {
-      sendJSON(res, 200, removeModule(settings, url.searchParams.get('id') || 'local-llm'))
+      if (runtimeOperations.has(settings.backendDir) || installStates.get(settings.backendDir)?.running || [...moduleStates.entries()].some(([id, state]) => id.startsWith(settings.backendDir + ':') && state.running)) throw new Error('已有维护操作，请稍后重试')
+      runtimeOperations.add(settings.backendDir)
+      try {
+        const health = await probeHealth(settings)
+        if (health.ok && health.health?.instance?.kind !== 'source') throw new Error('请先停止便携后端，再移除组件，以免影响正在使用的依赖')
+        sendJSON(res, 200, removeModule(settings, url.searchParams.get('id') || 'local-llm'))
+      } finally { runtimeOperations.delete(settings.backendDir) }
       return
     }
     sendJSON(res, 404, { ok: false, message: 'not found' })
@@ -1161,74 +1263,106 @@ async function handleModules(req, res, settings) {
   }
 }
 
+async function processIdentity(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 1) return ''
+  const result = process.platform === 'win32'
+    ? await execText('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" | Select-Object ProcessId,CreationDate,ExecutablePath,CommandLine | ConvertTo-Json -Compress`], 10000)
+    : await execText('ps', ['-p', String(pid), '-o', 'lstart=', '-o', 'command='], 10000)
+  if (result.ok) return result.stdout.trim()
+  try { process.kill(pid, 0) } catch (error) { if (error.code === 'ESRCH') return '' }
+  throw new Error('无法核验进程身份，未继续进程操作')
+}
+
+async function ownsPortablePort(settings) {
+  // Old cores do not return instance metadata. Verify their PID against the OS
+  // listener as well as process birth/command identity, never health alone.
+  let record
+  try { record = JSON.parse(readFileSync(join(settings.backendDir, 'backend.pid'), 'utf8')) } catch { return false }
+  if (!record || record.root !== resolve(settings.backendDir) || !record.identity) return false
+  try {
+    if (await processIdentity(record.pid) !== record.identity) return false
+    const port = Number(settings.port || new URL(settings.consoleHref).port || 80)
+    if (!Number.isSafeInteger(port) || port < 1 || port > 65535) return false
+    const listener = process.platform === 'win32'
+      ? await execText('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue).OwningProcess`], 10000)
+      : await execText('lsof', ['-n', '-P', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], 10000)
+    return listener.ok && listener.stdout.trim().split(/\s+/).includes(String(record.pid))
+  } catch { return false }
+}
+
 async function startBackendRuntime(settings) {
+  const targetHost = new URL(settings.consoleHref).hostname
+  if (!['127.0.0.1', 'localhost', '[::1]', '::1'].includes(targetHost)) throw new Error('便携进程只能在本机控制台地址启动；远程地址仅支持连接')
+  if (installStates.get(settings.backendDir)?.running || [...moduleStates.entries()].some(([id, state]) => id.startsWith(settings.backendDir + ':') && state.running)) throw new Error('正在安装后端或组件，请等待完成')
   const status = await backendRuntimeStatus(settings)
-  if (!status.installed) throw new Error('后端尚未安装，请先安装')
-  if (status.running) return { ...status, ok: true, message: '后端已在运行' }
+  if (!status.installed) throw new Error('后端未完整安装，请先安装或修复')
+  if (status.running) return { ...status, ok: true, message: '便携后端已在运行' }
+  if ((await probeHealth(settings)).ok) throw new Error('当前地址已有其他或来源未确认的服务；未启动第二个后端')
+  const portBusy = await new Promise((done, rejectPromise) => {
+    const target = new URL(settings.consoleHref)
+    const socket = createConnection({ host: target.hostname, port: Number(target.port || (target.protocol === 'https:' ? 443 : 80)) })
+    socket.setTimeout(2000)
+    socket.once('connect', () => { socket.destroy(); done(true) })
+    socket.once('error', error => { socket.destroy(); if (error.code === 'ECONNREFUSED') done(false); else rejectPromise(new Error('无法确认目标端口是否空闲，未启动后端')) })
+    socket.once('timeout', () => { socket.destroy(); rejectPromise(new Error('目标端口检测超时，未启动后端')) })
+  })
+  if (portBusy) throw new Error('目标端口已被其他服务占用；未启动后端，请检查控制台地址和端口')
   const dataDir = join(settings.backendDir, 'data')
   mkdirSync(dataDir, { recursive: true })
   const adb = join(settings.backendDir, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb')
   const logPath = join(settings.backendDir, 'backend.log')
   const out = openSync(logPath, 'a')
-  const child = spawn(status.runtimePython, [
-    '-m', 'uvicorn', 'web.server:app', '--host', '127.0.0.1', '--port', String(settings.port),
-  ], {
-    cwd: status.consoleDir,
-    env: {
-      ...process.env,
-      PYTHONPATH: [status.consoleDir, ...installedModuleSitePaths(settings)].join(delimiter),
-      ONMYOJI_DATA_DIR: dataDir,
-      PORT: String(settings.port),
-      ADB_PATH: existsSync(adb) ? adb : process.env.ADB_PATH,
-      PYTHONUNBUFFERED: '1',
-    },
-    detached: true,
-    stdio: ['ignore', out, out],
-    windowsHide: true,
-  })
+  let child
+  try {
+    child = spawn(status.runtimePython, ['-m', 'uvicorn', 'web.server:app', '--host', '127.0.0.1', '--port', String(settings.port)], {
+      cwd: status.consoleDir,
+      env: { ...process.env, PYTHONPATH: [status.consoleDir, ...installedModuleSitePaths(settings)].join(delimiter),
+        ONMYOJI_DATA_DIR: dataDir, ONMYOJI_BACKEND_KIND: 'portable', ONMYOJI_MODULES: moduleDefs(settings).filter((item) => item.installed).map((item) => item.id + '@' + item.version).join(','), PORT: String(settings.port),
+        ADB_PATH: existsSync(adb) ? adb : process.env.ADB_PATH, PYTHONUNBUFFERED: '1' },
+      detached: true, stdio: ['ignore', out, out], windowsHide: true,
+    })
+    await new Promise((resolvePromise, rejectPromise) => { child.once('spawn', resolvePromise); child.once('error', rejectPromise) })
+  } finally { closeSync(out) }
+  child.on('error', (error) => logRuntime(settings.backendDir, 'backend process failed: ' + error.message))
   child.unref()
-  writeFileSync(join(settings.backendDir, 'backend.pid'), String(child.pid))
-  const healthy = await waitHealthy(settings, 180000)
-  if (!healthy) {
-    throw new Error(`后端启动失败，查看日志：${logPath}\n${tailFile(logPath, 2000)}`)
-  }
-  return { ...(await backendRuntimeStatus(settings)), ok: true, message: '后端已启动' }
+  let identity
+  try { identity = await processIdentity(child.pid) } catch (error) { child.kill(); throw error }
+  if (!identity) { child.kill(); throw new Error('无法记录后端进程身份，已取消启动') }
+  writeFileSync(join(settings.backendDir, 'backend.pid'), JSON.stringify({ pid: child.pid, identity, root: resolve(settings.backendDir) }))
+  if (!(await waitHealthy(settings, 180000))) throw new Error('启动尚未就绪，请查看 backend.log 并刷新状态；不要重复启动')
+  const started = await backendRuntimeStatus(settings)
+  if (!started.running) throw new Error('服务已响应，但来源未能核验为此次便携后端；请检查端口和进程日志')
+  return { ...started, ok: true, message: '后端已启动' }
 }
 
 async function stopBackendRuntime(settings) {
   const pidPath = join(settings.backendDir, 'backend.pid')
-  let pid = 0
-  try {
-    pid = Number(readFileSync(pidPath, 'utf8').trim())
-  } catch {
-    pid = 0
+  let record
+  try { record = JSON.parse(readFileSync(pidPath, 'utf8')) } catch { /* no verified record */ }
+  if (!record && !(await probeHealth(settings)).ok) return { ...(await backendRuntimeStatus(settings)), ok: true, message: '便携后端未运行' }
+  if (!record || !Number.isSafeInteger(record.pid) || record.pid <= 1 || !record.identity || record.root !== resolve(settings.backendDir)) {
+    return { ...(await backendRuntimeStatus(settings)), ok: false, message: '没有可核验的进程记录；未发送停止信号。旧版 PID 需手动核实后处理。' }
   }
-  if (!pid) {
-    const health = await probeHealth(settings)
-    return {
-      ...(await backendRuntimeStatus(settings)),
-      ok: !health.ok,
-      message: health.ok ? '服务在运行，但不是本插件启动的（没有 pid 记录）' : '后端未运行',
+  const actual = await processIdentity(record.pid)
+  if (!actual) { rmSync(pidPath, { force: true }); return { ...(await backendRuntimeStatus(settings)), ok: true, message: '所记录的进程已不存在' } }
+  if (actual !== record.identity) return { ...(await backendRuntimeStatus(settings)), ok: false, message: 'PID 已被其他进程复用，未发送信号' }
+  if (process.platform === 'win32') {
+    const stopped = await execText('taskkill', ['/PID', String(record.pid), '/T', '/F'], 15000)
+    if (!stopped.ok) throw new Error('停止失败，已保留进程记录')
+  } else {
+    try { process.kill(record.pid, 'SIGTERM') } catch (error) { if (error.code !== 'ESRCH') throw error }
+    for (let i = 0; i < 40; i++) {
+      const identity = await processIdentity(record.pid)
+      if (!identity || identity !== record.identity) break
+      await new Promise((done) => setTimeout(done, 250))
     }
+    if (await processIdentity(record.pid) === record.identity) process.kill(record.pid, 'SIGKILL')
   }
-  try {
-    if (process.platform === 'win32') {
-      await execText('taskkill', ['/PID', String(pid), '/T', '/F'], 15000)
-    } else {
-      process.kill(pid, 'SIGTERM')
-      await new Promise((done) => setTimeout(done, 1200))
-      try { process.kill(pid, 'SIGKILL') } catch { /* gone */ }
-    }
-  } catch {
-    // already gone
-  }
+  for (let i = 0; i < 20 && await processIdentity(record.pid) === record.identity; i++) await new Promise(done => setTimeout(done, 100))
+  if (await processIdentity(record.pid) === record.identity) throw new Error('进程尚未退出，已保留进程记录，请刷新状态')
   rmSync(pidPath, { force: true })
-  const deadline = Date.now() + 15000
-  while (Date.now() < deadline) {
-    if (!(await probeHealth(settings)).ok) break
-    await new Promise((done) => setTimeout(done, 300))
-  }
-  return { ...(await backendRuntimeStatus(settings)), ok: true, message: '后端已停止' }
+  return { ...(await backendRuntimeStatus(settings)), ok: true, message: '已停止经过身份核验的便携后端' }
 }
 
 async function handleBackendRuntime(req, res, settings) {
@@ -1258,11 +1392,15 @@ async function handleBackendRuntime(req, res, settings) {
       return
     }
     if (action === 'start') {
-      sendJSON(res, 200, await startBackendRuntime(settings))
+      if (runtimeOperations.has(settings.backendDir)) throw new Error('已有后端维护操作，请稍后重试')
+      runtimeOperations.add(settings.backendDir)
+      try { sendJSON(res, 200, await startBackendRuntime(settings)) } finally { runtimeOperations.delete(settings.backendDir) }
       return
     }
     if (action === 'stop') {
-      sendJSON(res, 200, await stopBackendRuntime(settings))
+      if (runtimeOperations.has(settings.backendDir) || installStates.get(settings.backendDir)?.running || [...moduleStates.entries()].some(([id, state]) => id.startsWith(settings.backendDir + ':') && state.running)) throw new Error('已有维护操作，请稍后重试')
+      runtimeOperations.add(settings.backendDir)
+      try { sendJSON(res, 200, await stopBackendRuntime(settings)) } finally { runtimeOperations.delete(settings.backendDir) }
       return
     }
     sendJSON(res, 404, { ok: false, message: `未知操作：${action}` })

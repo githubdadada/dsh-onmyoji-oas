@@ -28,6 +28,81 @@ window.__ModuleLoader__.load({
 
     // [key, zh, en] keeps both dictionaries structurally identical.
     const TEXT = [
+      ['plans.fixedCount', '固定 {n} 次', 'Fixed: {n} runs'],
+      ['plans.defaultCount', '次数跟随任务默认设置；未设置次数的任务按自身规则执行', 'Runs follow task defaults; tasks without run counts use their own rules'],
+      ['diag.moduleDescription', '本地模型所需依赖；模型文件需单独放置。', 'Dependencies for local models; model files are supplied separately.'],
+      ["diag.summary", "状态与排障", "Status and troubleshooting"],
+      ["diag.maintainOas", "OAS 更新与备份", "OAS updates and backups"],
+      ["diag.environment", "安装与组件", "Installation and modules"],
+      ["diag.advanced", "高级操作", "Advanced actions"],
+      ["diag.simpleHint", "先确认运行状态；更新、安装和恢复按需打开。", "Check status first. Open updates, installation and recovery only when needed."],
+      ["diag.localChangesHint", "OAS 有本地修改。镜像更新已受保护，不影响当前运行；更新前先核对并备份这些修改。", "OAS has local changes. Mirror updates are protected; current operation is unaffected. Review and back up the changes before updating."],
+      ["diag.troubleshootHint", "遇到问题时先刷新状态；需要进一步排查时导出诊断包。", "Refresh status first. Export diagnostics when further investigation is needed."],
+      ["diag.mirrorTitle", "镜像下载与更新（高级）", "Mirror download and update (advanced)"],
+      ["diag.mirrorHint", "此入口直接维护配置的 OAS 目录；已有本地修改时不允许镜像更新。", "This manages the configured OAS directory directly. Mirror updates require a clean tracked working tree."],
+      ["diag.pathsTitle", "配置与数据位置", "Configuration and data locations"],
+      ["diag.sourceModeHint", "当前使用源码后端；便携包和它的可选组件是另一套环境，不是当前服务的必装项。", "The source backend is connected. The portable package and its modules are a separate, optional environment."],
+      ["diag.advancedHint", "以下操作会启动任务、拉起设备或停止服务，请按需要执行。", "These actions may run due tasks, launch devices or stop the service."],
+      ["diag.available", "可用", "Available"],
+      ["diag.notDetected", "未检测到", "Not detected"],
+      ['plans.upgradeBackend', '计划预览需要更新控制台后端；现有计划仍会正常执行。', 'Update the console backend to preview schedules. Existing schedules continue to run.'],
+      ['plans.backendDefault', '后端默认设备', 'Backend default device'],
+      ['plans.edit', '编辑计划', 'Edit schedule'],
+      ['plans.confirm', '确认保存', 'Confirm and save'],
+      ['plans.preview', '预览计划', 'Preview schedule'],
+      ['plans.reviewHint', '先预览识别出的任务、时间与设备，确认后再保存。', 'Preview the task, timing and device before saving.'],
+      ['maintenance.title', '安装、更新与恢复', 'Install, update and recover'],
+      ['overview.sunday', '仅周日', 'Sundays only'],
+      ['settings.options', '任务选项', 'Task options'],
+      ['settings.count', '次数', 'Runs'],
+      ['settings.device', '设备', 'Device'],
+      ['settings.partial', '保存未全部完成：{saved}。未保存项：{failed}。请核对后重试。', 'Settings were not fully saved. Saved: {saved}. Failed: {failed}. Review before retrying.'],
+      ['plans.noResult', '尚未执行', 'Not run yet'],
+      ['plans.lastResult', '上次执行', 'Last execution'],
+      ['plans.deleteConfirm', '删除这项计划？此操作不会停止已经运行的任务。', 'Delete this schedule? A running task will not be stopped.'],
+      ['device.deleteConfirm', '删除设备 {name}？已保存的任务和计划可能仍引用它。', 'Delete device {name}? Saved tasks and schedules may still refer to it.'],
+      ['observe.title', '设备画面与执行历史', 'Screen and execution history'],
+      ['data.refreshed', '数据更新于 {time}', 'Updated at {time}'],
+      ['data.catalogFailed', '任务目录读取失败，请重试', 'Task catalog could not be loaded. Retry to continue.'],
+      ['data.partial', '部分数据读取失败；以下内容可能过期', 'Some data could not be loaded and may be stale'],
+      ['data.health', '服务', 'Service'],
+      ['data.catalog', '任务目录', 'Task catalog'],
+      ['data.running', '运行状态', 'Execution status'],
+      ['data.devices', '设备', 'Devices'],
+      ['data.schedules', '计划', 'Schedules'],
+      ['data.executions', '执行结果', 'Execution results'],
+      ['data.maintenance', '维护信息', 'Maintenance'],
+      ['diag.currentInstance', '当前连接的运行环境', 'Connected runtime'],
+      ['diag.sourceInstance', '源码后端', 'Source backend'],
+      ['diag.portableInstance', '便携后端', 'Portable backend'],
+      ['diag.unknownInstance', '来源未确认；请更新后端后再管理进程', 'Unknown origin; update the backend before managing processes'],
+      ['diag.instanceHint', '下方维护按对象分组，停止或重启前请确认当前来源。', 'Maintenance is grouped by target. Check the connected runtime before stopping or restarting.'],
+      ['diag.moduleMounted', '当前便携进程已挂载依赖；模型需另行配置', 'Mounted in the portable process; configure a model separately'],
+      ['diag.modulePending', '文件已安装，当前进程尚未挂载；需启动或重启便携后端', 'Installed on disk, not mounted in the current process; start or restart the portable backend'],
+      ['diag.moduleStopFirst', '先停止便携后端，再移除组件', 'Stop the portable backend before removing this component'],
+      ['diag.maintenanceBusy', '已有维护操作，请等待完成', 'Wait for the current maintenance operation'],
+      ['diag.result', '最近维护结果', 'Latest maintenance result'],
+      ['error.timeout', '请求超时，操作可能仍在进行；请先刷新状态，避免重复提交。', 'Request timed out. The operation may still be running; refresh before retrying.'],
+      ['task.moreSettings', '更多设置与说明', 'More settings and information'],
+      ['task.invalidCount', '次数必须为 1–{max} 的整数', 'Runs must be an integer from 1 to {max}'],
+      ['execution.empty', '暂无执行记录；开始任务后可在所有页面查看和停止。', 'No executions yet. Status and stop controls are available across all pages.'],
+      ['execution.legacy', '旧版后端：此记录仅在当前页面保留', 'Older backend: this record is kept on this page only'],
+      ['execution.details', '查看结果与步骤', 'View result and steps'],
+      ['execution.retryConfirm', '重新运行整项任务可能重复已完成步骤，继续？', 'Running the task again may repeat completed steps. Continue?'],
+      ['execution.statusUnavailable', '运行状态暂不可读，确认设备状态后再提交', 'Execution status is unavailable. Refresh before submitting.'],
+      ['execution.submitted', '任务已提交，可在执行栏查看状态与结果', 'Task submitted. Follow its status and result in the execution panel.'],
+      ['execution.partial', '部分步骤失败', 'Some steps failed'],
+      ['execution.failed', '执行失败', 'Failed'],
+      ['execution.succeeded', '已完成', 'Completed'],
+      ['execution.stopped', '已停止', 'Stopped'],
+      ['execution.unknown', '结果待确认，请刷新运行状态', 'Result unknown; refresh execution status'],
+      ['execution.stopping', '正在停止', 'Stopping'],
+      ['execution.running', '运行中', 'Running'],
+      ['execution.preparing', '正在准备', 'Preparing'],
+      ['execution.title', '执行与结果', 'Executions and results'],
+      ['actions.retryTask', '重新运行', 'Run again'],
+      ['actions.settings', '设置', 'Settings'],
+      ['actions.stopTask', '停止任务', 'Stop task'],
       ['panel.label', '阴阳师 OAS', 'Onmyoji OAS'],
       ['app.eyebrow', 'ONMYOJI AUTOSCRIPT', 'ONMYOJI AUTOSCRIPT'],
       ['app.title', '阴阳师 OAS', 'Onmyoji OAS'],
@@ -94,8 +169,8 @@ window.__ModuleLoader__.load({
       ['overview.eyebrow', 'OVERVIEW', 'OVERVIEW'],
       ['overview.title', 'OAS 总览', 'OAS overview'],
       ['overview.subtitle', '本地 OnmyojiAutoScript 的运行状态、版本与官方入口', 'Local OnmyojiAutoScript status, version, and official links'],
-      ['overview.heroReadyTitle', '设备已就绪', 'Device ready'],
-      ['overview.heroReadyBody', '当前设备：{name}。可以开始一键日常或单项任务。', 'Current device: {name}. Start the daily routine or a single task.'],
+      ['overview.heroReadyTitle', '设备已连接', 'Device connected'],
+      ['overview.heroReadyBody', '当前设备：{name}。提交后会检查游戏状态，再执行任务。', 'Current device: {name}. The game is checked before execution.'],
       ['overview.heroRunTitle', '任务正在执行', 'Task running'],
       ['overview.heroRunBody', '{task} 正在 {device} 上运行，可随时停止。', '{task} is running on {device}; stop it at any time.'],
       ['overview.heroOfflineTitle', '先启动本地服务', 'Start the local service'],
@@ -105,7 +180,7 @@ window.__ModuleLoader__.load({
       ['overview.heroRuntimeTitle', '先启动便携后端', 'Start the portable backend'],
       ['overview.heroRuntimeBody', '后端已安装但未运行，点击启动；首次启动需要几秒。', 'The backend is installed but not running. Start it; the first launch takes a few seconds.'],
       ['overview.heroInstallTitle', '一键安装后端', 'Install the backend'],
-      ['overview.heroInstallBody', '自动安装 Python、控制台和 OAS；不需要 .app，也不需要手动装 Python。首次约 700MB。', 'Installs Python, the console, and OAS automatically; no .app and no manual Python setup. About 700MB on first run.'],
+      ['overview.heroInstallBody', '自动安装 Python、控制台和 OAS；不需要 .app，也不需要手动装 Python。macOS arm64 核心约 534MiB。', 'Installs Python, the console, and OAS automatically; no .app and no manual Python setup. About 700MB on first run.'],
       ['overview.pathHint', '在仓库根目录运行', 'Run in the repository root'],
       ['overview.serviceHint', '也可在终端执行 ./start.sh --foreground', 'Or run ./start.sh --foreground in a terminal'],
       ['overview.oneclick', '一键日常', 'Daily routine'],
@@ -178,10 +253,10 @@ window.__ModuleLoader__.load({
       ['kind.other', '任务', 'Task'],
       ['tasks.eyebrow', 'TASK LIBRARY', 'TASK LIBRARY'],
       ['tasks.title', '任务库', 'Task library'],
-      ['tasks.subtitle', '搜索 OAS 任务；次数、组队身份与设备指定在详情中调整', 'Search OAS tasks; adjust runs, team role, and device in the detail sheet'],
+      ['tasks.subtitle', '选择任务即可按当前配置运行；需要调整时打开设置。', 'Run with the displayed settings, or open Settings to adjust them.'],
       ['tasks.search', '搜索任务、模块或说明', 'Search tasks, modules, or notes'],
       ['tasks.all', '全部', 'All'],
-      ['tasks.ready', '可运行', 'Runnable'],
+      ['tasks.ready', '已启用', 'Enabled'],
       ['tasks.daily', '每日', 'Daily'],
       ['tasks.weekly', '每周', 'Weekly'],
       ['tasks.event', '活动', 'Event'],
@@ -278,7 +353,7 @@ window.__ModuleLoader__.load({
       ['diag.oasUpdateHint', '下载或更新后请重启控制台，使新代码生效。', 'Restart the console after downloading or updating.'],
       ['diag.oasRestart', '重启控制台', 'Restart console'],
       ['diag.oasRestarting', '重启中…', 'Restarting…'],
-      ['diag.oasTrackedDirty', '跟踪文件有未提交改动，更新会被阻止', 'The update is blocked by uncommitted tracked changes'],
+      ['diag.oasTrackedDirty', '已保护本地修改：镜像更新暂不可用，当前运行不受影响。请先核对并备份修改。', 'The update is blocked by uncommitted tracked changes'],
       ['diag.oasInstallHint', '将克隆到 {path}；目标目录非空时不会覆盖', 'Clones into {path}; a non-empty target is not overwritten'],
       ['diag.backendRuntime', '便携后端', 'Portable backend'],
       ['diag.backendRuntimeDesc', '一键安装 Python + 控制台 + OAS；不需要 .app，也不需要手动装 Python', 'Install Python, console, and OAS in one click; no .app and no manual Python setup'],
@@ -298,12 +373,12 @@ window.__ModuleLoader__.load({
       ['diag.backendRunning', '运行中', 'Running'],
       ['diag.backendStopped', '未运行', 'Stopped'],
       ['diag.backendNoBundle', '未配置安装包地址', 'Bundle URL is not configured'],
-      ['diag.backendConfirmInstall', '将下载并解压后端包到 {dir}，首次约 700MB，继续？', 'Download and extract the backend bundle into {dir} (about 700MB). Continue?'],
+      ['diag.backendConfirmInstall', '将下载并解压后端包到 {dir}，macOS arm64 核心约 534MiB，继续？', 'Download and extract the backend bundle into {dir} (about 534MiB on macOS arm64). Continue?'],
       ['diag.backendConfirmStop', '停止后端会中断正在执行的任务，继续？', 'Stopping the backend interrupts running tasks. Continue?'],
       ['diag.backendOas', 'OAS', 'OAS'],
       ['diag.backendOasReady', '已包含', 'Included'],
       ['diag.backendOasMissing', '缺失', 'Missing'],
-      ['diag.backendUpdateHint', 'OAS 更新用下方「OAS 运行时」；升级后端包重新安装即可。', 'Update OAS with the runtime card below; reinstall the bundle to upgrade the backend.'],
+      ['diag.backendUpdateHint', '安装包与当前源码环境分别管理。已完整安装的核心暂不支持直接覆盖升级。', 'The portable package is managed separately from source. In-place upgrades of a complete core installation are not supported.'],
       ['diag.modules', '可选组件', 'Optional components'],
       ['diag.modulesDesc', '核心已包含 OAS 日常功能；需要本地 LLM 时再装这个运行时，不装不影响任务。', 'The core already runs OAS. Install this runtime only if you need the local LLM.'],
       ['diag.moduleLocalLlm', '本地 LLM 运行时', 'Local LLM runtime'],
@@ -312,19 +387,20 @@ window.__ModuleLoader__.load({
       ['diag.moduleInstall', '安装组件', 'Install module'],
       ['diag.moduleInstalling', '组件安装中…', 'Installing module…'],
       ['diag.moduleRemove', '移除组件', 'Remove module'],
-      ['diag.moduleRemoveConfirm', '移除 {name}？重启便携后端后生效；模型文件不会被删除。', 'Remove {name}? Restart the portable backend to apply. Model files are not deleted.'],
+      ['diag.moduleRemoveConfirm', '移除 {name}？请先停止便携后端；模型文件不会被删除。', 'Remove {name}? Stop the portable backend first. Model files are not deleted.'],
       ['diag.moduleInstallConfirm', '将下载 {name}（约 {size}），继续？', 'Download {name} (about {size})?'],
-      ['diag.moduleRestartHint', '安装/移除后，重启便携后端才会生效。', 'Restart the portable backend after installing or removing a module.'],
-      ['diag.moduleModelHint', '模型文件不包含在组件内：可放到 {path}，或使用 Ollama。', 'Model files are not included: place them in {path}, or use Ollama.'],
+      ['diag.moduleRestartHint', '安装组件后重启便携后端生效；移除组件前先停止后端。', 'Restart the portable backend after installing; stop it before removing a module.'],
+      ['diag.moduleModelHint', '组件不包含模型；本地模型目录：{path}。依赖安装成功不代表模型已就绪。', 'Models are not included. Local model directory: {path}. Installed dependencies do not mean the model is ready.'],
       ['diag.moduleUnsupported', '当前平台暂不支持该组件', 'This module is not available on this platform'],
       ['diag.moduleSize', '组件大小', 'Module size'],
       ['diag.moduleRequiresCore', '需要核心版本', 'Requires core'],
+      ['diag.moduleCoreVersion', '当前核心 {current}，组件需要 {required} 或更高。', 'Current core {current}; this module requires {required} or newer.'],
       ['diag.moduleError', '组件安装失败', 'Module install failed'],
       ['diag.moduleRestart', '重启便携后端', 'Restart portable backend'],
       ['diag.moduleRestarting', '重启中…', 'Restarting…'],
-      ['diag.moduleCoreMissing', '便携后端尚未安装；组件可先下载，启动时加载。', 'The portable backend is not installed; the module can be downloaded and is loaded on start.'],
+      ['diag.moduleCoreMissing', '请先安装便携后端；组件安装会校验核心版本。', 'Install the portable backend first; module installation validates the core version.'],
       ['overview.installBackend', '一键安装后端', 'Install backend'],
-      ['overview.installBackendHint', '首次约 700MB，自动装好 Python、控制台和 OAS', 'About 700MB on first run; installs Python, console, and OAS'],
+      ['overview.installBackendHint', 'macOS arm64 核心约 534MiB，自动装好 Python、控制台和 OAS', 'About 700MB on first run; installs Python, console, and OAS'],
       ['overview.startBackendRuntime', '启动后端', 'Start backend'],
       ['rail.screen', '设备画面', 'Device screen'],
       ['rail.refresh', '刷新画面', 'Refresh screen'],
@@ -368,6 +444,13 @@ window.__ModuleLoader__.load({
 
     function enc(value) {
       return encodeURIComponent(String(value ?? ''))
+    }
+
+    function safeConsoleHref(value) {
+      try {
+        const url = new URL(value || CONSOLE_URL)
+        return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : CONSOLE_URL
+      } catch { return CONSOLE_URL }
     }
 
     function sleep(ms) {
@@ -456,17 +539,63 @@ window.__ModuleLoader__.load({
       return !!task && task.enabled !== false && task.entry_state === 'ready' && !isExpired(task)
     }
 
-    async function requestJSON(path, options) {
-      const response = await fetch(path, Object.assign({ cache: 'no-store' }, options || {}))
-      const text = await response.text()
-      let value
-      try { value = text ? JSON.parse(text) : {} } catch { value = { message: text.slice(0, 300) } }
-      if (!response.ok) {
-        const error = new Error(value && value.message ? value.message : `HTTP ${response.status}`)
-        error.offline = response.status === 502
-        throw error
+    function isActiveExecution(job) {
+      return ['preparing', 'running', 'stopping'].includes(job.state)
+    }
+
+    function executionRows(c) {
+      const jobs = [...(c.data.executions || []), ...(c.localExecutions || [])]
+      const external = Object.entries(c.data.running || {}).filter(([serial]) =>
+        !jobs.some((job) => job.device === serial && isActiveExecution(job)))
+        .map(([device, run]) => ({ id: 'external-' + device, device, task_id: run.task_id,
+          state: 'running', created_at: run.started_at, external: true }))
+      return [...external, ...jobs].sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
+    }
+
+    function taskTarget(data, task) {
+      return task.device?.assigned || data.device || ''
+    }
+
+    function taskRunReason(c, task, t, serial = taskTarget(c.data, task)) {
+      if (c.offline) return t('diag.healthOffline')
+      if (c.data.resourceErrors.running) return t('execution.statusUnavailable')
+      if (isExpired(task)) return t('task.disabledReason.expired')
+      if (task.entry_state === 'frozen') return t('task.disabledReason.frozen')
+      if (task.entry_state === 'unwired') return t('task.disabledReason.unwired')
+      if (task.enabled === false) return t('task.disabledReason.off')
+      const device = c.data.devices.find((item) => item.serial === serial)
+      if (!device || !device.online) return t('task.disabledReason.noDevice')
+      if (c.isBusy('run:' + serial) || executionRows(c).some((job) => job.device === serial && isActiveExecution(job))) {
+        return t('task.disabledReason.busy')
       }
-      return value
+      return ''
+    }
+
+    function taskDefaults(task) {
+      return Object.fromEntries(Object.entries(task.options || {}).map(([key, meta]) => [key,
+        meta.value === undefined ? meta.default : meta.value]))
+    }
+
+    async function requestJSON(path, options = {}) {
+      const { timeoutMs = options.method && options.method !== 'GET' ? 180000 : 12000, ...init } = options
+      const controller = new AbortController()
+      const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null
+      try {
+        const response = await fetch(path, { cache: 'no-store', ...init, signal: controller.signal })
+        const text = await response.text()
+        let value
+        try { value = text ? JSON.parse(text) : {} } catch { value = { message: text.slice(0, 300) } }
+        if (!response.ok) {
+          const detail = Array.isArray(value.detail) ? value.detail.map((item) => item.msg || '').join('; ') : value.detail
+          const error = new Error(value.message || detail || `HTTP ${response.status}`)
+          error.status = response.status
+          throw error
+        }
+        return value
+      } catch (error) {
+        if (error.name === 'AbortError') throw new Error(ZH['error.timeout'])
+        throw error
+      } finally { if (timer) clearTimeout(timer) }
     }
 
     async function postJSON(path, body) {
@@ -494,12 +623,22 @@ window.__ModuleLoader__.load({
         health: null, catalog: [], devices: [], running: {}, schedules: [],
         recent: [], oneclick: EMPTY_ONE_CLICK, scheduler: null, oas: null,
         autostart: null, status: null, backend: null, baseline: null, oasRuntime: null,
+        executions: [], resourceErrors: {}, refreshedAt: null,
         backendRuntime: null, modules: null, device: '',
       }))
       const [loading, setLoading] = useState(true)
       const [offline, setOffline] = useState(false)
       const [error, setError] = useState('')
-      const [busy, setBusy] = useState('')
+      const [pendingKeys, setPendingKeys] = useState([])
+      const pending = useRef(new Set())
+      const busy = pendingKeys[0] || ''
+      const isBusy = useCallback((key) => pendingKeys.includes(key), [pendingKeys])
+      const [localExecutions, setLocalExecutions] = useState([])
+      const loadInFlight = useRef(null)
+      const liveInFlight = useRef(false)
+      const resourceVersions = useRef({})
+      const dataRef = useRef(data)
+      dataRef.current = data
       const [toast, setToast] = useState(null)
       const [shot, setShot] = useState({ serial: '', data: '', at: null, error: '' })
       const [updateCheck, setUpdateCheck] = useState(null)
@@ -508,6 +647,7 @@ window.__ModuleLoader__.load({
       const [oasRuntimeCheck, setOasRuntimeCheck] = useState(null)
       const [oasRuntimeResult, setOasRuntimeResult] = useState(null)
       const [exportResult, setExportResult] = useState(null)
+      const [maintenanceResult, setMaintenanceResult] = useState(null)
       const toastTimer = useRef(0)
       const mounted = useRef(true)
 
@@ -528,80 +668,120 @@ window.__ModuleLoader__.load({
         }, tone === 'fail' ? 7000 : 4200)
       }, [])
 
-      const loadAll = useCallback(async () => {
-        const defs = [
-          ['health', '/health'], ['catalog', '/catalog'], ['devices', '/devices'],
-          ['running', '/running'], ['schedules', '/schedules'],
-          ['oneclick', '/oneclick/describe'], ['recent', '/exec-history'],
-          ['scheduler', '/scheduler'], ['oas', '/oas/status'], ['autostart', '/autostart'],
-          ['status', '/status'],
-        ]
-        const results = await Promise.allSettled(defs.map(([, path]) => requestJSON(API + path)))
-        const backend = await requestJSON(CONTROL + '/status').catch(() => null)
-        const baseline = await requestJSON(BASELINE + '/status').catch(() => null)
-        const oasRuntime = await requestJSON(OAS_RUNTIME + '/status').catch(() => null)
-        const backendRuntime = await requestJSON(BACKEND_RUNTIME + '/status').catch(() => null)
-        const modules = await requestJSON(MODULES + '/status').catch(() => null)
-        if (!mounted.current) return
-        const patch = {}
-        if (backend) patch.backend = backend
-        if (baseline) patch.baseline = baseline
-        if (oasRuntime) patch.oasRuntime = oasRuntime
-        if (backendRuntime) patch.backendRuntime = backendRuntime
-        if (modules) patch.modules = modules
-        let firstError = ''
-        results.forEach((result, index) => {
-          const key = defs[index][0]
-          if (result.status !== 'fulfilled') {
-            if (key === 'health') firstError = (result.reason && result.reason.message) || ''
-            return
+      const loadAll = useCallback(() => {
+        if (loadInFlight.current) return loadInFlight.current
+        const work = (async () => {
+          const defs = [
+            ['health', API + '/health'], ['catalog', API + '/catalog'],
+            ['devices', API + '/devices'], ['running', API + '/running'],
+            ['schedules', API + '/schedules'], ['oneclick', API + '/oneclick/describe'],
+            ['recent', API + '/exec-history'], ['scheduler', API + '/scheduler'],
+            ['oas', API + '/oas/status'], ['autostart', API + '/autostart'],
+            ['status', API + '/status'], ['executions', API + '/executions'],
+            ['backend', CONTROL + '/status'], ['baseline', BASELINE + '/status'],
+            ['oasRuntime', OAS_RUNTIME + '/status'], ['backendRuntime', BACKEND_RUNTIME + '/status'],
+            ['modules', MODULES + '/status'],
+          ]
+          const tickets = defs.map(([key]) => resourceVersions.current[key] = (resourceVersions.current[key] || 0) + 1)
+          const fresh = index => resourceVersions.current[defs[index][0]] === tickets[index]
+          const results = await Promise.allSettled(defs.map(([, path]) => requestJSON(path)))
+          if (!mounted.current) return
+          setData((prev) => {
+          const patch = {}, resourceErrors = { ...prev.resourceErrors }
+          results.forEach((result, index) => {
+            const key = defs[index][0]
+            if (!fresh(index)) return
+            delete resourceErrors[key]
+            if (result.status !== 'fulfilled') {
+              if (key !== 'executions' || dataRef.current.health?.features?.executions) {
+                resourceErrors[key] = result.reason?.message || tRef.current('toast.failed')
+              }
+              return
+            }
+            const value = result.value
+            if (key === 'catalog') patch.catalog = Array.isArray(value) ? value : (value.tasks || value.catalog || [])
+            else if (key === 'devices') patch.devices = Array.isArray(value) ? value : (value.devices || [])
+            else if (key === 'running') patch.running = value.running || {}
+            else if (key === 'schedules') patch.schedules = value.schedules || []
+            else if (key === 'recent') patch.recent = value.records || value.history || value.exec_history || []
+            else if (key === 'executions') patch.executions = value.executions || []
+            else patch[key] = value
+          })
+            const next = { ...prev, ...patch, resourceErrors, refreshedAt: Date.now() }
+            if (!next.devices.some((item) => item.serial === next.device)) {
+              next.device = (next.devices.find((item) => item.online) || next.devices[0])?.serial || ''
+            }
+            return next
+          })
+          if (fresh(0)) {
+            setOffline(results[0].status !== 'fulfilled' || results[0].value?.ok !== true)
+            setError(results[0].status === 'rejected' ? results[0].reason?.message || tRef.current('toast.failed') : '')
           }
-          const value = result.value
-          if (key === 'catalog') patch.catalog = Array.isArray(value) ? value : (value.tasks || value.catalog || [])
-          else if (key === 'devices') patch.devices = Array.isArray(value) ? value : (value.devices || [])
-          else if (key === 'running') patch.running = value.running || {}
-          else if (key === 'schedules') patch.schedules = value.schedules || []
-          else if (key === 'recent') patch.recent = value.records || value.history || []
-          else patch[key] = value
-        })
-        setData((prev) => {
-          const next = Object.assign({}, prev, patch)
-          if (!next.devices.some((item) => item.serial === next.device)) {
-            const pick = next.devices.find((item) => item.online) || next.devices[0]
-            next.device = pick ? pick.serial : ''
-          }
-          return next
-        })
-        setOffline(results[0].status !== 'fulfilled')
-        setError(firstError)
-        setLoading(false)
+          setLoading(false)
+        })()
+        loadInFlight.current = work
+        work.finally(() => { loadInFlight.current = null }).catch(() => {})
+        return work
       }, [])
 
       useEffect(() => {
         loadAll()
         const timer = setInterval(async () => {
+          if (liveInFlight.current) return
+          liveInFlight.current = true
           try {
-            const values = await Promise.all([requestJSON(API + '/health'), requestJSON(API + '/running')])
+            const defs = [['health', '/health'], ['running', '/running']]
+            if (dataRef.current.health?.features?.executions) defs.push(['executions', '/executions'])
+            const tickets = defs.map(([key]) => resourceVersions.current[key] = (resourceVersions.current[key] || 0) + 1)
+            const fresh = index => resourceVersions.current[defs[index]?.[0]] === tickets[index]
+            const values = await Promise.allSettled(defs.map(([, path]) => requestJSON(API + path)))
             if (!mounted.current) return
-            setData((prev) => Object.assign({}, prev, { health: values[0], running: values[1].running || {} }))
-            setOffline(false)
-            setError('')
-          } catch {
-            if (mounted.current) setOffline(true)
-          }
-        }, 6000)
-        return () => clearInterval(timer)
+            const previous = dataRef.current
+            const nextJobs = fresh(2) && values[2]?.status === 'fulfilled' ? values[2].value.executions || [] : null
+            const nextRunning = fresh(1) && values[1]?.status === 'fulfilled' ? values[1].value.running || {} : null
+            const finished = (nextJobs && previous.executions.some(job => isActiveExecution(job) && nextJobs.some(next => next.id === job.id && !isActiveExecution(next))))
+              || (nextRunning && Object.keys(previous.running).some(serial => !nextRunning[serial]))
+            setData((prev) => {
+              const patch = {}, resourceErrors = { ...prev.resourceErrors }
+              values.forEach((result, i) => {
+                const key = defs[i][0]
+                if (!fresh(i)) return
+                if (result.status === 'rejected') resourceErrors[key] = result.reason?.message || 'Unavailable'
+                else {
+                  delete resourceErrors[key]
+                  patch[key] = key === 'running' ? result.value.running || {}
+                    : key === 'executions' ? result.value.executions || [] : result.value
+                }
+              })
+              return { ...prev, ...patch, resourceErrors }
+            })
+            if (fresh(0)) {
+              setOffline(values[0].status !== 'fulfilled' || values[0].value?.ok !== true)
+              setError(values[0].status === 'rejected' ? values[0].reason?.message || tRef.current('toast.failed') : '')
+            }
+            if (finished) loadAll()
+          } finally { liveInFlight.current = false }
+        }, 3000)
+        const refreshTimer = setInterval(loadAll, 30000)
+        return () => { clearInterval(timer); clearInterval(refreshTimer) }
       }, [loadAll])
 
       const runAction = useCallback(async (key, operation) => {
-        setBusy(key)
-        try {
-          return await operation()
-        } catch (exception) {
-          notify((exception && exception.message) || tRef.current('toast.failed'), 'fail')
+        if (pending.current.has(key)) return undefined
+        const maintenance = value => /^(backend|module:|baseline:|oas-runtime:|oas:apply|oas:rollback)/.test(value)
+        if (maintenance(key) && [...pending.current].some(maintenance)) {
+          notify(tRef.current('diag.maintenanceBusy'), 'fail')
+          return undefined
+        }
+        pending.current.add(key)
+        setPendingKeys([...pending.current])
+        try { return await operation() }
+        catch (exception) {
+          notify(exception?.message || tRef.current('toast.failed'), 'fail')
           return undefined
         } finally {
-          if (mounted.current) setBusy('')
+          pending.current.delete(key)
+          if (mounted.current) setPendingKeys([...pending.current])
         }
       }, [notify])
 
@@ -630,33 +810,65 @@ window.__ModuleLoader__.load({
         return true
       }), [loadAll, notify, runAction])
 
-      const stopDevice = useCallback((serial) => runAction('stop:' + serial, async () => {
-        const result = await postJSON(`/devices/${enc(serial)}/stop`)
+      const stopDevice = useCallback((serial, executionId) => runAction('stop:' + serial, async () => {
+        const path = /^[a-f0-9]{32}$/.test(executionId || '') ? `/executions/${enc(executionId)}/stop` : `/devices/${enc(serial)}/stop`
+        const result = await postJSON(path)
         notify(result.message || tRef.current('toast.stopped'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
 
-      const runTask = useCallback((taskId, device, count, options) => runAction('run:' + taskId, async () => {
+      const runTask = useCallback((taskId, device, count, options) => runAction('run:' + device, async () => {
         if (!device) throw new Error(tRef.current('toast.noDevice'))
+        const current = dataRef.current
+        if (current.resourceErrors.running) throw new Error(tRef.current('execution.statusUnavailable'))
         const body = { task_id: taskId }
         if (count !== null && count !== undefined && count !== '') body.count = Number(count)
         if (options && Object.keys(options).length) body.options = options
-        const result = await postJSON(`/devices/${enc(device)}/run`, body)
-        notify(result.message || tRef.current('toast.done'))
-        await loadAll()
-        return true
+        if (current.health?.features?.executions) {
+          await postJSON(`/devices/${enc(device)}/executions`, body)
+          notify(tRef.current('execution.submitted'))
+          await loadAll()
+          return true
+        }
+        // Older backends use the same persistent result panel, without pretending
+        // that a local pending request can survive a backend/page restart.
+        const id = 'local-' + Date.now()
+        setLocalExecutions((prev) => [{ id, device, task_id: taskId, request: body,
+          state: 'preparing', created_at: Date.now() / 1000 }, ...prev].slice(0, 20))
+        try {
+          const result = await requestJSON(API + `/devices/${enc(device)}/run`, {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body), timeoutMs: 0,
+          })
+          if (mounted.current) setLocalExecutions((prev) => prev.map((job) => job.id === id
+            ? { ...job, result, state: result.stopped ? 'stopped' : !result.ok ? 'failed' : result.business?.steps?.some(step => step.ok === false && !step.skipped) ? 'partial' : 'succeeded' } : job))
+          return result.ok === true
+        } catch (exception) {
+          if (mounted.current) setLocalExecutions((prev) => prev.map((job) => job.id === id
+            ? { ...job, state: 'unknown', result: { ok: false, message: exception.message } } : job))
+          throw exception
+        } finally { await loadAll() }
       }), [loadAll, notify, runAction])
 
       const saveTaskDefaults = useCallback((taskId, assignedDevice, count, options) => runAction('save:' + taskId, async () => {
-        const steps = [postJSON(`/tasks/${enc(taskId)}/device`, { device: assignedDevice || '' })]
-        if (count !== null && count !== undefined && count !== '') {
-          steps.push(postJSON(`/tasks/${enc(taskId)}/count`, { count: Number(count) }))
+        const body = { device: assignedDevice || '', options: options || {} }
+        if (count !== undefined && count !== null && count !== '') body.count = Number(count)
+        if (dataRef.current.health?.features?.task_defaults) {
+          await postJSON(`/tasks/${enc(taskId)}/defaults`, body)
+        } else {
+          const saved = []
+          const changes = [[tRef.current('settings.device'), () => postJSON(`/tasks/${enc(taskId)}/device`, { device: body.device })]]
+          if (body.count !== undefined) changes.push([tRef.current('settings.count'), () => postJSON(`/tasks/${enc(taskId)}/count`, { count: body.count })])
+          for (const [key, value] of Object.entries(body.options)) changes.push([key, () => postJSON(`/tasks/${enc(taskId)}/options`, { key, value })])
+          for (const [name, apply] of changes) {
+            try { await apply(); saved.push(name) }
+            catch (error) {
+              await loadAll()
+              throw new Error(tf(tRef.current, 'settings.partial', { saved: saved.join(', ') || '—', failed: name }) + ' ' + error.message)
+            }
+          }
         }
-        for (const [key, value] of Object.entries(options || {})) {
-          steps.push(postJSON(`/tasks/${enc(taskId)}/options`, { key, value }))
-        }
-        await Promise.all(steps)
         notify(tRef.current('toast.saved'))
         await loadAll()
         return true
@@ -677,8 +889,9 @@ window.__ModuleLoader__.load({
       }), [loadAll, notify, runAction])
 
       const warmDevice = useCallback((serial) => runAction('warm:' + serial, async () => {
-        await postJSON('/autostart/warmup', { serial })
-        notify(tRef.current('toast.warmed'))
+        const result = await postJSON('/autostart/warmup', { serial })
+        if (result.result?.ok === false && !result.result?.skipped) throw new Error(result.result.message || tRef.current('toast.failed'))
+        notify(result.result?.message || tRef.current('toast.warmed'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
@@ -704,8 +917,20 @@ window.__ModuleLoader__.load({
         return true
       }), [loadAll, notify, runAction])
 
-      const createSchedule = useCallback((text, deviceSerial) => runAction('schedule:create', async () => {
-        const result = await postJSON('/schedules', { text, device_serial: deviceSerial || '' })
+      const previewSchedule = useCallback((text, deviceSerial) => runAction('schedule:preview', async () => {
+        if (!dataRef.current.health?.features?.schedule_preview) throw new Error(tRef.current('plans.upgradeBackend'))
+        const result = await postJSON('/schedules/preview', {
+          text, device_serial: deviceSerial || dataRef.current.device || '',
+        })
+        return result.schedule
+      }), [runAction])
+
+      const createSchedule = useCallback((text, deviceSerial, editId) => runAction('schedule:create', async () => {
+        const result = await requestJSON(API + (editId ? '/schedules/' + enc(editId) : '/schedules'), {
+          method: editId ? 'PATCH' : 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text, device_serial: deviceSerial || dataRef.current.device || '' }),
+        })
+        if (result.ok === false) throw new Error(result.message || tRef.current('toast.failed'))
         notify(result.message || tRef.current('toast.scheduleCreated'))
         await loadAll()
         return true
@@ -720,8 +945,9 @@ window.__ModuleLoader__.load({
 
       const runSchedule = useCallback((id) => runAction('schedule:run:' + id, async () => {
         notify(tRef.current('toast.scheduleRun'))
-        const result = await postJSON(`/schedules/${enc(id)}/run`)
-        notify(result.message || tRef.current('toast.done'))
+        const asynchronous = dataRef.current.health?.features?.schedule_executions
+        const result = await postJSON(`/schedules/${enc(id)}/${asynchronous ? 'executions' : 'run'}`)
+        notify(result.message || tRef.current(asynchronous ? 'execution.submitted' : 'toast.done'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
@@ -834,6 +1060,7 @@ window.__ModuleLoader__.load({
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ name }),
         })
+        if (mounted.current) setMaintenanceResult(result)
         if (result.ok === false) throw new Error(result.message || tRef.current('toast.failed'))
         notify(result.message || tRef.current('diag.baselineRestored'))
         await loadAll()
@@ -908,13 +1135,7 @@ window.__ModuleLoader__.load({
           if (status.installed) break
         }
         if (!status || !status.installed) throw new Error('后端安装超时，请查看安装日志')
-        const startedBackend = await requestJSON(BACKEND_RUNTIME + '/start', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        if (startedBackend.ok === false) throw new Error(startedBackend.message || tRef.current('toast.failed'))
-        notify(startedBackend.message || tRef.current('toast.backendStarted'))
+        notify(tRef.current('diag.backendStopped'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
@@ -997,7 +1218,7 @@ window.__ModuleLoader__.load({
         setShot((prev) => Object.assign({}, prev, { serial, error: '' }))
         try {
           const result = await requestJSON(API + `/screenshot?serial=${enc(serial)}&t=${Date.now()}`)
-          if (!result.ok || !result.data) throw new Error(result.message || tRef.current('rail.noShot'))
+          if (!result.ok || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$/.test(result.data || '')) throw new Error(result.message || tRef.current('rail.noShot'))
           if (!mounted.current) return
           setShot({ serial, data: result.data, at: result.ts || Date.now() / 1000, error: '' })
         } catch (exception) {
@@ -1007,15 +1228,15 @@ window.__ModuleLoader__.load({
       }, [notify])
 
       return {
-        data, loading, offline, error, busy, toast, shot, updateCheck, oasPreview, oasResult,
+        data, loading, offline, error, busy, isBusy, pendingKeys, localExecutions, toast, shot, updateCheck, oasPreview, oasResult,
         oasRuntimeCheck, oasRuntimeResult, exportResult,
         notify, refresh, loadAll, selectDevice,
         startBackend, stopBackend, restartBackend,
         runTask, saveTaskDefaults, toggleTask,
         stopDevice, connectDevice, warmDevice, addDevice, deleteDevice, toggleDevice,
-        createSchedule, toggleSchedule, runSchedule, deleteSchedule,
+        previewSchedule, createSchedule, toggleSchedule, runSchedule, deleteSchedule,
         tickNow, warmAll, exportDiagnose, checkOasUpdate, previewOasUpdate, applyOasUpdate, rollbackOas,
-        createBaseline, restoreBaseline, installOasRuntime, checkOasRuntime, updateOasRuntime,
+        createBaseline, restoreBaseline, maintenanceResult, installOasRuntime, checkOasRuntime, updateOasRuntime,
         installBackendRuntime, startBackendRuntime, stopBackendRuntime, restartBackendRuntime,
         installModule, removeModule,
         refreshScreenshot,
@@ -1093,11 +1314,11 @@ window.__ModuleLoader__.load({
           ),
           h('button', {
             type: 'button', className: 'onm-btn ghost small',
-            onClick: c.refresh, disabled: c.busy === 'refresh',
-          }, c.busy === 'refresh' ? t('common.loading') : t('actions.refresh')),
+            onClick: c.refresh, disabled: c.isBusy('refresh'),
+          }, c.isBusy('refresh') ? t('common.loading') : t('actions.refresh')),
           h('a', {
             className: 'onm-btn ghost small',
-            href: (c.data.backend && c.data.backend.url) || CONSOLE_URL,
+            href: safeConsoleHref(c.data.backend?.url),
             target: '_blank', rel: 'noreferrer',
           }, t('actions.openConsole') + ' ↗'),
         ),
@@ -1121,8 +1342,8 @@ window.__ModuleLoader__.load({
       const t = props.t
       const c = props.c
       const data = c.data
-      const canStart = !data.backend || data.backend.canStart !== false
-      const consoleHref = (data.backend && data.backend.url) || CONSOLE_URL
+      const canStart = data.backend?.canStart === true
+      const consoleHref = safeConsoleHref(data.backend?.url)
       const runtime = data.backendRuntime || {}
       const runtimeInstalled = runtime.installed === true
       const runtimeRunning = runtime.running === true
@@ -1145,7 +1366,10 @@ window.__ModuleLoader__.load({
       let heroTitle = t('overview.heroIdleTitle')
       let heroBody = t('overview.heroIdleBody')
       if (c.offline) {
-        if (runtimeInstalled) {
+        if (canStart) {
+          heroTitle = t('overview.heroOfflineTitle')
+          heroBody = t('overview.heroOfflineBody')
+        } else if (runtimeInstalled) {
           heroTitle = t('overview.heroRuntimeTitle')
           heroBody = t('overview.heroRuntimeBody')
         } else if (runtimeCanInstall || runtimeInstalling) {
@@ -1165,13 +1389,18 @@ window.__ModuleLoader__.load({
 
       const heroActions = []
       if (c.offline) {
-        if (runtimeInstalled) {
+        if (canStart) {
+          heroActions.push(h('button', {
+            key: 'start', type: 'button', className: 'onm-btn primary',
+            onClick: c.startBackend, disabled: c.isBusy('backend'),
+          }, c.isBusy('backend') ? t('actions.starting') : t('actions.startService')))
+        } else if (runtimeInstalled) {
           heroActions.push(h('button', {
             key: 'start-runtime', type: 'button', className: 'onm-btn primary',
             onClick: c.startBackendRuntime,
-            disabled: c.busy === 'backend-runtime:start',
-          }, c.busy === 'backend-runtime:start' ? t('diag.backendStarting') : t('overview.startBackendRuntime')))
-        } else if (runtimeCanInstall || runtimeInstalling || c.busy === 'backend-runtime:install') {
+            disabled: c.isBusy('backend-runtime:start'),
+          }, c.isBusy('backend-runtime:start') ? t('diag.backendStarting') : t('overview.startBackendRuntime')))
+        } else if (runtimeCanInstall || runtimeInstalling || c.isBusy('backend-runtime:install')) {
           heroActions.push(h('button', {
             key: 'install-runtime', type: 'button', className: 'onm-btn primary',
             onClick: () => {
@@ -1179,13 +1408,8 @@ window.__ModuleLoader__.load({
                 c.installBackendRuntime()
               }
             },
-            disabled: c.busy === 'backend-runtime:install' || runtimeInstalling,
-          }, (c.busy === 'backend-runtime:install' || runtimeInstalling) ? t('diag.backendInstalling') : t('overview.installBackend')))
-        } else if (canStart) {
-          heroActions.push(h('button', {
-            key: 'start', type: 'button', className: 'onm-btn primary',
-            onClick: c.startBackend, disabled: c.busy === 'backend',
-          }, c.busy === 'backend' ? t('actions.starting') : t('actions.startService')))
+            disabled: c.isBusy('backend-runtime:install') || runtimeInstalling,
+          }, (c.isBusy('backend-runtime:install') || runtimeInstalling) ? t('diag.backendInstalling') : t('overview.installBackend')))
         }
         heroActions.push(h('a', {
           key: 'console', className: 'onm-btn ghost', href: consoleHref, target: '_blank', rel: 'noreferrer',
@@ -1198,7 +1422,7 @@ window.__ModuleLoader__.load({
         }, t('overview.oneclick')))
         heroActions.push(h('button', {
           key: 'tasks', type: 'button', className: 'onm-btn ghost',
-          onClick: () => props.onTab('tasks'),
+          onClick: () => props.onTab(online ? 'tasks' : 'devices'),
         }, online ? t('overview.browseTasks') : t('overview.manageDevices')))
       }
 
@@ -1249,35 +1473,6 @@ window.__ModuleLoader__.load({
             h('em', null, nextSchedule ? (nextSchedule.task_name || nextSchedule.task_id) : t('plans.noPlans')),
           ),
         ),
-        h(OasCard, { key: 'oas', t, c }),
-        h('section', { key: 'running', className: 'onm-card' },
-          h('div', { className: 'onm-card-head' },
-            h('div', null,
-              h('h2', { className: 'onm-card-title' }, t('overview.running')),
-              h('p', { className: 'onm-card-desc' }, t('overview.noRunningHint')),
-            ),
-            run ? h('button', {
-              type: 'button', className: 'onm-btn danger small',
-              onClick: () => c.stopDevice(device.serial),
-              disabled: c.busy === 'stop:' + device.serial,
-            }, t('actions.close')) : null,
-          ),
-          run
-            ? h('div', { className: 'onm-row' },
-                h('div', { className: 'onm-row-main' },
-                  h('div', { className: 'onm-row-title' }, taskName(data, run.task_id, t)),
-                  h('div', { className: 'onm-row-sub' }, String(device.serial) + ' · ' + fmtTime(run.started_at) + ' · PID ' + String(run.pid || '—')),
-                ),
-                h('div', { className: 'onm-row-actions' },
-                  h('button', {
-                    type: 'button', className: 'onm-btn danger small',
-                    onClick: () => c.stopDevice(device.serial),
-                    disabled: c.busy === 'stop:' + device.serial,
-                  }, t('actions.close')),
-                ),
-              )
-            : h('div', { className: 'onm-empty' }, t('overview.noRunning')),
-        ),
         h('div', { key: 'lists', className: 'onm-grid two' },
           h('section', { className: 'onm-card' },
             h('div', { className: 'onm-card-head' },
@@ -1311,7 +1506,7 @@ window.__ModuleLoader__.load({
               const frozen = (data.oneclick.frozen || []).indexOf(id) !== -1 || (task && task.entry_state === 'frozen')
               const off = task && task.enabled === false
               const sundayOnly = (data.oneclick.sunday_only || []).indexOf(id) !== -1 && new Date().getDay() !== 0
-              const label = frozen ? t('task.frozen') : off ? t('task.disabled') : sundayOnly ? '周日' : t('kind.must_do')
+              const label = frozen ? t('task.frozen') : off ? t('task.disabled') : sundayOnly ? t('overview.sunday') : t('kind.must_do')
               return h('div', { key: id, className: 'onm-row' },
                 h('div', { className: 'onm-row-main' },
                   h('div', { className: 'onm-row-title' }, String(index + 1).padStart(2, '0') + ' · ' + taskName(data, id, t)),
@@ -1371,17 +1566,17 @@ window.__ModuleLoader__.load({
           h('a', { className: 'onm-btn ghost small', href: OAS_REPO, target: '_blank', rel: 'noreferrer' }, t('actions.repo') + ' ↗'),
           h('button', {
             type: 'button', className: 'onm-btn small', onClick: c.checkOasUpdate,
-            disabled: busy === 'oas:check' || c.offline,
-          }, busy === 'oas:check' ? t('actions.checking') : t('actions.checkUpdate')),
+            disabled: c.isBusy('oas:check') || c.offline,
+          }, c.isBusy('oas:check') ? t('actions.checking') : t('actions.checkUpdate')),
           h('button', {
             type: 'button', className: 'onm-btn small', onClick: c.previewOasUpdate,
-            disabled: busy === 'oas:preview' || c.offline,
-          }, busy === 'oas:preview' ? t('overview.previewing') : t('overview.preview')),
+            disabled: c.isBusy('oas:preview') || c.offline,
+          }, c.isBusy('oas:preview') ? t('overview.previewing') : t('overview.preview')),
           h('button', {
             type: 'button', className: 'onm-btn small',
             onClick: () => confirmThen(t('overview.rollbackConfirm'), c.rollbackOas),
-            disabled: busy === 'oas:rollback' || c.offline,
-          }, busy === 'oas:rollback' ? t('overview.rollingBack') : t('overview.rollback')),
+            disabled: c.isBusy('oas:rollback') || c.offline,
+          }, c.isBusy('oas:rollback') ? t('overview.rollingBack') : t('overview.rollback')),
         ),
         checkText ? h('div', { className: 'onm-notice ' + (check && check.ok ? '' : 'fail'), style: { marginTop: '12px' } }, checkText) : null,
         preview
@@ -1400,8 +1595,8 @@ window.__ModuleLoader__.load({
                     h('button', {
                       type: 'button', className: 'onm-btn primary small',
                       onClick: () => confirmThen(t('overview.applyConfirm'), c.applyOasUpdate),
-                      disabled: busy === 'oas:apply',
-                    }, busy === 'oas:apply' ? t('overview.applying') : t('overview.apply')),
+                      disabled: c.isBusy('oas:apply'),
+                    }, c.isBusy('oas:apply') ? t('overview.applying') : t('overview.apply')),
                   )
                 : null,
               preview.ok && preview.dirty_count
@@ -1434,176 +1629,189 @@ window.__ModuleLoader__.load({
     }
 
     function Tasks(props) {
-      const t = props.t
-      const c = props.c
-      const [search, setSearch] = useState('')
-      const [filter, setFilter] = useState('all')
-      const [visible, setVisible] = useState(24)
-
-      useEffect(() => { setVisible(24) }, [search, filter])
-
-      const filters = [
-        ['all', t('tasks.all')], ['ready', t('tasks.ready')], ['daily', t('tasks.daily')],
-        ['weekly', t('tasks.weekly')], ['event', t('tasks.event')],
-      ]
+      const { t, c } = props
+      const { search, filter, visible = 24 } = props.draft
       const query = search.trim().toLowerCase()
-      const list = (c.data.catalog || []).filter((task) => {
+      const list = c.data.catalog.filter((task) => {
         if (filter === 'ready' && !isRunnable(task)) return false
-        if (filter === 'daily' && task.cycle !== 'daily') return false
-        if (filter === 'weekly' && task.cycle !== 'weekly') return false
-        if (filter === 'event' && task.cycle !== 'event') return false
-        if (!query) return true
-        return [task.id, task.name, task.note, task.source].some((value) => String(value || '').toLowerCase().indexOf(query) !== -1)
-      }).sort((left, right) => {
-        const rank = (task) => (isRunnable(task) ? 0 : task.entry_state === 'ready' ? 1 : 2)
-        return rank(left) - rank(right)
-          || (left.order === undefined ? 100 : left.order) - (right.order === undefined ? 100 : right.order)
-          || String(left.name).localeCompare(String(right.name))
-      })
-      const shown = list.slice(0, visible)
-
+        if (['daily', 'weekly', 'event'].includes(filter) && task.cycle !== filter) return false
+        return !query || [task.name, task.id, task.note, task.source]
+          .some((value) => String(value || '').toLowerCase().includes(query))
+      }).sort((a, b) => Number(!isRunnable(a)) - Number(!isRunnable(b))
+        || (a.order ?? 100) - (b.order ?? 100) || String(a.name).localeCompare(String(b.name)))
+      const updateFilter = (patch) => props.onDraft({ ...patch, visible: 24 })
       return [
         h('div', { key: 'head' },
-          h('span', { className: 'onm-eyebrow' }, t('tasks.eyebrow')),
           h('h2', { className: 'onm-page-title' }, t('tasks.title')),
-          h('p', { className: 'onm-page-desc' }, t('tasks.subtitle')),
-        ),
+          h('p', { className: 'onm-page-desc' }, t('tasks.subtitle'))),
         h('div', { key: 'filters', className: 'onm-toolbar' },
-          h('input', {
-            className: 'onm-input', type: 'search', value: search,
+          h('input', { className: 'onm-input', type: 'search', value: search,
             placeholder: t('tasks.search'), 'aria-label': t('tasks.search'),
-            onChange: (event) => setSearch(event.target.value),
-          }),
-          h('div', { className: 'onm-segmented', role: 'group' },
-            filters.map(([id, label]) => h('button', {
-              key: id, type: 'button',
-              className: 'onm-seg' + (filter === id ? ' active' : ''),
-              onClick: () => setFilter(id),
-            }, label)),
-          ),
-        ),
-        h('div', { key: 'count', className: 'onm-count' }, tf(t, 'tasks.found', { n: list.length, m: shown.length })),
-        shown.length
-          ? h('div', { key: 'grid', className: 'onm-grid tasks' },
-              shown.map((task) => {
-                const state = taskState(t, task)
-                const countText = task.count && task.count.supported ? ' · ' + task.count.value + ' ' + t('common.count') : ''
-                return h('button', {
-                  key: task.id, type: 'button',
-                  className: 'onm-task' + (isRunnable(task) ? '' : ' off'),
-                  onClick: () => props.onOpenTask(task.id),
-                },
-                  h('div', { className: 'onm-task-head' },
-                    h('div', null,
-                      h('span', { className: 'onm-eyebrow' }, cycleLabel(t, task.cycle) + ' / ' + kindLabel(t, task.task_kind)),
-                      h('h3', { className: 'onm-task-title' }, task.name || task.id),
-                    ),
-                    h(Badge, { tone: state.tone }, state.label),
-                  ),
-                  h('p', { className: 'onm-task-note' }, task.note || (cycleLabel(t, task.cycle) + ' · ' + kindLabel(t, task.task_kind))),
-                  h('div', { className: 'onm-task-foot' },
-                    h('span', { className: 'onm-mono' }, task.id + countText),
-                    h('span', null, t('task.setup')),
-                  ),
-                )
-              }),
-            )
-          : h('div', { key: 'empty', className: 'onm-card onm-empty' }, t('tasks.noMatch')),
-        shown.length < list.length
-          ? h('div', { key: 'more', className: 'onm-center' },
-              h('button', { type: 'button', className: 'onm-btn small', onClick: () => setVisible(visible + 24) }, t('actions.more')))
-          : null,
+            onChange: (e) => updateFilter({ search: e.target.value }) }),
+          h('div', { className: 'onm-segmented', role: 'group', 'aria-label': t('tasks.title') },
+            ['all', 'ready', 'daily', 'weekly', 'event'].map((id) => h('button', {
+              key: id, type: 'button', className: 'onm-seg' + (filter === id ? ' active' : ''),
+              'aria-pressed': filter === id, onClick: () => updateFilter({ filter: id }),
+            }, t('tasks.' + id))))),
+        h('div', { key: 'count', className: 'onm-count', role: 'status' },
+          tf(t, 'tasks.found', { n: list.length, m: Math.min(visible, list.length) })),
+        c.data.resourceErrors.catalog && !c.data.catalog.length
+          ? h('div', { key: 'error', className: 'onm-notice fail' }, t('data.catalogFailed'),
+              h('button', { className: 'onm-btn small', onClick: c.refresh }, t('actions.retry')))
+          : h('div', { key: 'list', className: 'onm-task-list' }, list.slice(0, visible).map((task) => {
+              const serial = taskTarget(c.data, task)
+              const device = c.data.devices.find((item) => item.serial === serial)
+              const reason = taskRunReason(c, task, t, serial)
+              const state = taskState(t, task)
+              const summary = [device?.name || serial || t('common.notSelected')]
+              if (task.count?.supported) summary.push((task.count.value ?? task.count.default) + ' ' + t('common.count'))
+              for (const meta of Object.values(task.options || {})) {
+                const value = meta.value === undefined ? meta.default : meta.value
+                summary.push((meta.choices || []).find(([id]) => id === value)?.[1] || value)
+              }
+              return h('article', { key: task.id, className: 'onm-task-row' + (isRunnable(task) ? '' : ' off') },
+                h('div', { className: 'onm-row-main' },
+                  h('h3', { className: 'onm-task-title' }, task.name || task.id),
+                  h('p', { className: 'onm-row-sub' }, summary.filter(Boolean).join(' · ')),
+                  reason ? h('p', { className: 'onm-row-sub' }, reason) : null),
+                h('div', { className: 'onm-row-actions' },
+                  h(Badge, { tone: state.tone }, state.label),
+                  h('button', { type: 'button', className: 'onm-btn small',
+                    onClick: () => props.onOpenTask(task.id),
+                    'aria-label': (task.name || task.id) + ' · ' + t('actions.settings') }, t('actions.settings')),
+                  h('button', { type: 'button', className: 'onm-btn primary small', disabled: !!reason,
+                    title: reason || summary.join(' · '),
+                    'aria-label': (task.name || task.id) + ' · ' + t('actions.run'),
+                    onClick: () => c.runTask(task.id, serial,
+                      task.count?.supported ? (task.count.value ?? task.count.default) : undefined, taskDefaults(task)),
+                  }, t('actions.run'))))
+            }), !list.length ? h('div', { className: 'onm-empty' }, t('tasks.noMatch')) : null),
+        visible < list.length ? h('button', { key: 'more', type: 'button', className: 'onm-btn small',
+          onClick: () => props.onDraft({ visible: visible + 24 }) }, t('actions.more')) : null,
       ]
     }
 
-    function Plans(props) {
-      const t = props.t
-      const c = props.c
-      const [text, setText] = useState('')
-      const [device, setDevice] = useState('')
-      const schedules = c.data.schedules || []
-      const creating = c.busy === 'schedule:create'
-      const deviceOptions = [h('option', { key: 'follow', value: '' }, t('common.followDevice'))].concat(
-        c.data.devices.map((item) => h('option', { key: item.serial, value: item.serial }, item.name || item.serial)),
-      )
+    function ExecutionPanel({ t, c, onOpenTask }) {
+      const rows = executionRows(c)
+      const active = rows.filter(isActiveExecution)
+      const latest = rows.filter((job) => !isActiveExecution(job))
+      const renderJob = (job) => {
+        const device = c.data.devices.find((item) => item.serial === job.device)
+        const result = job.result || {}
+        const steps = result.business?.steps || []
+        return h('div', { key: job.id, className: 'onm-execution' },
+          h('div', { className: 'onm-row' },
+            h('div', { className: 'onm-row-main' },
+              h('div', { className: 'onm-row-title' }, taskName(c.data, job.task_id, t)),
+              h('div', { className: 'onm-row-sub' }, (device?.name || job.device) + ' · ' + fmtTime(job.created_at)),
+              result.message ? h('div', { className: 'onm-row-sub' }, result.message) : null),
+            h('div', { className: 'onm-row-actions' },
+              h(Badge, { tone: job.state === 'failed' || job.state === 'partial' ? 'bad' : isActiveExecution(job) ? 'warn' : job.state === 'succeeded' ? 'ok' : '' }, t('execution.' + job.state)),
+              isActiveExecution(job) ? h('button', {
+                type: 'button', className: 'onm-btn danger small',
+                disabled: job.state === 'stopping' || c.isBusy('stop:' + job.device),
+                onClick: () => c.stopDevice(job.device, job.id),
+              }, job.state === 'stopping' ? t('execution.stopping') : t('actions.stopTask'))
+                : h('button', { type: 'button', className: 'onm-btn small',
+                    onClick: () => onOpenTask(job.task_id, job.request, job.device) }, t('actions.settings')))),
+          result.business && Object.keys(result.business).length ? h('details', { className: 'onm-details' },
+            h('summary', null, t('execution.details')),
+            steps.length ? steps.map((step, i) => h('div', { key: i, className: 'onm-row-sub' },
+              (step.skipped ? '— ' : step.ok ? '✓ ' : '✗ ') + taskName(c.data, step.task_id, t) + ' · ' + (step.message || '')))
+              : h('pre', { className: 'onm-code' }, JSON.stringify(result.business, null, 2))) : null)
+      }
+      return h('section', { className: 'onm-card onm-executions', 'aria-label': t('execution.title') },
+        h('h2', { className: 'onm-card-title' }, t('execution.title')),
+        active.map(renderJob),
+        latest.length ? h('details', { className: 'onm-result-history', open: !active.length },
+          h('summary', null, t('rail.recent') + ' · ' + latest.length), latest.map(renderJob)) : null,
+        !rows.length ? h('p', { className: 'onm-row-sub' }, t('execution.empty')) : null)
+    }
+
+    function Plans({ t, c, draft, onDraft }) {
+      const { text, device, preview, editId } = draft
+      const change = (patch) => onDraft({ ...patch, preview: null })
       const submit = async (event) => {
         event.preventDefault()
         if (!text.trim()) return
-        const ok = await c.createSchedule(text.trim(), device)
-        if (ok) setText('')
+        const result = await c.previewSchedule(text.trim(), device || c.data.device)
+        if (result) onDraft({ preview: result, __expected: draft._revision || 0 })
+      }
+      const confirm = async () => {
+        if (!preview) return
+        const ok = await c.createSchedule(preview.text, preview.device_serial, editId)
+        if (ok) onDraft({ text: '', device: '', preview: null, editId: null, __expected: draft._revision || 0 })
       }
       return [
-        h('div', { key: 'head' },
-          h('span', { className: 'onm-eyebrow' }, t('plans.eyebrow')),
-          h('h2', { className: 'onm-page-title' }, t('plans.title')),
-          h('p', { className: 'onm-page-desc' }, t('plans.subtitle')),
-        ),
+        h('div', { key: 'head' }, h('h2', { className: 'onm-page-title' }, t('plans.title')),
+          h('p', { className: 'onm-page-desc' }, t('plans.reviewHint'))),
         h('section', { key: 'form', className: 'onm-card' },
-          h('div', { className: 'onm-card-head' },
+          h('h2', { className: 'onm-card-title' }, editId ? t('plans.edit') : t('plans.addTitle')),
+          h('form', { className: 'onm-form', onSubmit: submit, style: { marginTop: '12px' } },
+            h(Field, { label: t('plans.rule'), grow: true }, h('input', {
+              className: 'onm-input', value: text, required: true, maxLength: 1000,
+              placeholder: t('plans.placeholder'), onChange: (e) => change({ text: e.target.value }),
+            })),
+            h(Field, { label: t('common.device') }, h('select', {
+              className: 'onm-select', value: device || c.data.device,
+              onChange: (e) => change({ device: e.target.value }),
+            }, !c.data.devices.length ? h('option', { value: '' }, t('common.notSelected')) : null,
+              c.data.devices.map((item) => h('option', { key: item.serial, value: item.serial }, item.name || item.serial)))),
+            h('button', { type: 'submit', className: 'onm-btn',
+              disabled: !text.trim() || c.isBusy('schedule:preview') || c.isBusy('schedule:create') || c.offline,
+            }, c.isBusy('schedule:preview') ? t('common.loading') : t('plans.preview'))),
+          preview ? h('div', { className: 'onm-notice', style: { marginTop: '14px' } },
             h('div', null,
-              h('h2', { className: 'onm-card-title' }, t('plans.addTitle')),
-              h('p', { className: 'onm-card-desc' }, t('plans.addHint')),
-            ),
-          ),
-          h('form', { className: 'onm-form', onSubmit: submit },
-            h(Field, { label: t('plans.rule'), grow: true },
-              h('input', {
-                className: 'onm-input', value: text, required: true,
-                placeholder: t('plans.placeholder'),
-                onChange: (event) => setText(event.target.value),
-              }),
-            ),
-            h(Field, { label: t('common.device') },
-              h('select', { className: 'onm-select', value: device, onChange: (event) => setDevice(event.target.value) }, deviceOptions),
-            ),
-            h('button', { type: 'submit', className: 'onm-btn primary', disabled: creating || !text.trim() },
-              creating ? t('actions.creating') : t('actions.create')),
-          ),
-        ),
+              h('strong', null, preview.task_name),
+              h('p', null, preview.description + ' · ' + preview.device_name),
+              h('p', null, preview.count != null ? tf(t, 'plans.fixedCount', {n:preview.count}) : t('plans.defaultCount')),
+              h('p', null, t('common.nextRun') + ': ' + preview.next_run_str),
+              (preview.warnings || []).map((warning, i) => h('p', { key: i }, warning))),
+            h('button', { type: 'button', className: 'onm-btn primary', onClick: confirm,
+              disabled: c.isBusy('schedule:create') }, c.isBusy('schedule:create') ? t('actions.saving') : t('plans.confirm')))
+            : null,
+          editId ? h('button', { type: 'button', className: 'onm-btn small', style: { marginTop: '10px' },
+            onClick: () => onDraft({ text: '', device: '', preview: null, editId: null }) }, t('actions.close')) : null),
         h('section', { key: 'list' },
-          h('div', { className: 'onm-card-head' },
-            h('div', null,
-              h('h2', { className: 'onm-card-title' }, t('plans.existing')),
-              h('p', { className: 'onm-card-desc' }, tf(t, 'plans.count', { n: schedules.length, m: schedules.filter((item) => item.enabled).length })),
-            ),
-          ),
-          schedules.length
-            ? schedules.map((schedule) => h('div', { key: schedule.id, className: 'onm-card onm-schedule' },
-                h('div', { className: 'onm-row-main' },
-                  h('div', { className: 'onm-row-sub' }, (schedule.device_serial || t('common.followDevice')) + ' · ' + (schedule.next_run_str || t('common.none'))),
-                  h('div', { className: 'onm-row-title' }, schedule.task_name || taskName(c.data, schedule.task_id, t)),
-                  h('div', { className: 'onm-row-sub' }, schedule.text || JSON.stringify(schedule.rule || {}) || t('plans.ruleMissing')),
-                ),
-                h('div', { className: 'onm-row-actions' },
-                  h(Badge, { tone: schedule.enabled ? 'ok' : '' }, schedule.enabled ? t('plans.enabled') : t('plans.paused')),
-                  h('button', {
-                    type: 'button', className: 'onm-btn small',
-                    onClick: () => c.toggleSchedule(schedule.id, !schedule.enabled),
-                    disabled: c.busy === 'schedule:toggle:' + schedule.id,
-                  }, schedule.enabled ? t('actions.disable') : t('actions.enable')),
-                  h('button', {
-                    type: 'button', className: 'onm-btn small',
-                    onClick: () => c.runSchedule(schedule.id),
-                    disabled: !schedule.enabled || c.busy === 'schedule:run:' + schedule.id,
-                  }, c.busy === 'schedule:run:' + schedule.id ? t('actions.running') : t('plans.runOnce')),
-                  h('button', {
-                    type: 'button', className: 'onm-btn danger small',
-                    onClick: () => c.deleteSchedule(schedule.id),
-                    disabled: c.busy === 'schedule:delete:' + schedule.id,
-                  }, t('actions.delete')),
-                ),
-              ))
-            : h('div', { className: 'onm-card onm-empty' }, t('plans.noPlans')),
-        ),
+          h('h2', { className: 'onm-card-title' }, t('plans.existing')),
+          c.data.schedules.map((schedule) => h('article', { key: schedule.id, className: 'onm-card onm-schedule' },
+            h('div', { className: 'onm-row-main' },
+              h('h3', { className: 'onm-task-title' }, schedule.task_name || taskName(c.data, schedule.task_id, t)),
+              h('div', { className: 'onm-row-sub' }, (c.data.devices.find((item) => item.serial === schedule.device_serial)?.name
+                || schedule.device_serial || t('plans.backendDefault')) + ' · ' + (schedule.next_run_str || t('common.none'))),
+              h('p', { className: 'onm-row-sub' }, schedule.text),
+              h('p', { className: 'onm-row-sub' }, schedule.count != null ? tf(t, 'plans.fixedCount', {n:schedule.count}) : t('plans.defaultCount')),
+              h('p', { className: 'onm-row-sub' }, t('plans.lastResult') + ': ' + (schedule.last_result
+                ? fmtTime(schedule.last_run) + ' · ' + (t('execution.' + (schedule.last_result.state || (schedule.last_result.stopped ? 'stopped' : schedule.last_result.partial ? 'partial' : schedule.last_result.ok ? 'succeeded' : 'failed'))) + (schedule.last_result.message ? ' · ' + schedule.last_result.message : ''))
+                : t('plans.noResult')))),
+            h('div', { className: 'onm-row-actions' },
+              h(Badge, { tone: schedule.status === 'error' ? 'bad' : schedule.enabled ? 'ok' : '' },
+                schedule.status === 'running' ? t('execution.running') : schedule.enabled ? t('plans.enabled') : t('plans.paused')),
+              h('button', { type: 'button', className: 'onm-btn small',
+                disabled: c.isBusy('schedule:toggle:' + schedule.id),
+                onClick: () => c.toggleSchedule(schedule.id, !schedule.enabled) }, schedule.enabled ? t('actions.disable') : t('actions.enable')),
+              h('button', { type: 'button', className: 'onm-btn small',
+                disabled: schedule.status === 'running' || c.isBusy('schedule:run:' + schedule.id),
+                onClick: () => c.runSchedule(schedule.id) }, c.isBusy('schedule:run:' + schedule.id) ? t('actions.running') : t('plans.runOnce')),
+              c.data.health?.features?.schedule_preview ? h('button', { type: 'button', className: 'onm-btn small',
+                disabled: schedule.status === 'running', onClick: () => onDraft({ text: schedule.text,
+                  device: schedule.device_serial || c.data.device, preview: null, editId: schedule.id }),
+              }, t('plans.edit')) : null,
+              h('button', { type: 'button', className: 'onm-btn danger small',
+                disabled: schedule.status === 'running' || c.isBusy('schedule:delete:' + schedule.id),
+                onClick: () => { if (window.confirm(t('plans.deleteConfirm'))) c.deleteSchedule(schedule.id) },
+              }, t('actions.delete'))))),
+          !c.data.schedules.length ? h('div', { className: 'onm-card onm-empty' }, t('plans.noPlans')) : null),
       ]
     }
 
     function Devices(props) {
       const t = props.t
       const c = props.c
-      const [serial, setSerial] = useState('')
-      const [name, setName] = useState('')
-      const adding = c.busy === 'device:add'
+      const { serial, name } = props.draft
+      const setSerial = (serial) => props.onDraft({ serial })
+      const setName = (name) => props.onDraft({ name })
+      const adding = c.isBusy('device:add')
       const submit = async (event) => {
         event.preventDefault()
         if (!serial.trim()) return
@@ -1644,16 +1852,16 @@ window.__ModuleLoader__.load({
                     h('button', { type: 'button', className: 'onm-btn small', onClick: () => c.selectDevice(device.serial) }, t('actions.setCurrent')),
                     h('button', {
                       type: 'button', className: 'onm-btn small', onClick: () => c.connectDevice(device.serial),
-                      disabled: c.busy === 'connect:' + device.serial,
-                    }, c.busy === 'connect:' + device.serial ? t('common.loading') : t('actions.connect')),
+                      disabled: c.isBusy('connect:' + device.serial),
+                    }, c.isBusy('connect:' + device.serial) ? t('common.loading') : t('actions.connect')),
                     h('button', {
                       type: 'button', className: 'onm-btn small', onClick: () => c.warmDevice(device.serial),
-                      disabled: c.busy === 'warm:' + device.serial,
-                    }, c.busy === 'warm:' + device.serial ? t('common.loading') : t('actions.warm')),
+                      disabled: c.isBusy('warm:' + device.serial),
+                    }, c.isBusy('warm:' + device.serial) ? t('common.loading') : t('actions.warm')),
                     run ? h('button', {
                       type: 'button', className: 'onm-btn danger small', onClick: () => c.stopDevice(device.serial),
-                      disabled: c.busy === 'stop:' + device.serial,
-                    }, t('actions.close')) : null,
+                      disabled: c.isBusy('stop:' + device.serial),
+                    }, t('actions.stopTask')) : null,
                   ),
                 )
               }),
@@ -1697,12 +1905,12 @@ window.__ModuleLoader__.load({
                 h('button', {
                   type: 'button', className: 'onm-btn small',
                   onClick: () => c.toggleDevice(device.serial, device.enabled === false),
-                  disabled: c.busy === 'device:toggle:' + device.serial,
+                  disabled: c.isBusy('device:toggle:' + device.serial),
                 }, device.enabled === false ? t('actions.enable') : t('actions.disable')),
                 h('button', {
                   type: 'button', className: 'onm-btn danger small',
-                  onClick: () => c.deleteDevice(device.serial),
-                  disabled: c.busy === 'device:delete:' + device.serial,
+                  onClick: () => { if (window.confirm(tf(t, 'device.deleteConfirm', { name: device.name || device.serial }))) c.deleteDevice(device.serial) },
+                  disabled: c.isBusy('device:delete:' + device.serial),
                 }, t('actions.delete')),
               ),
             )),
@@ -1715,6 +1923,8 @@ window.__ModuleLoader__.load({
     function Diagnostics(props) {
       const t = props.t
       const c = props.c
+      const [group, setGroup] = useState('summary')
+      const [expanded, setExpanded] = useState('')
       const health = c.data.health || {}
       const scheduler = c.data.scheduler || {}
       const oas = c.data.oas || {}
@@ -1737,61 +1947,40 @@ window.__ModuleLoader__.load({
       const modulesState = c.data.modules || {}
       const modules = modulesState.modules || []
       const autostart = (c.data.autostart && c.data.autostart.config) || {}
-      return [
-        h('div', { key: 'head' },
-          h('span', { className: 'onm-eyebrow' }, t('diag.eyebrow')),
-          h('h2', { className: 'onm-page-title' }, t('diag.title')),
-          h('p', { className: 'onm-page-desc' }, t('diag.subtitle')),
-        ),
+      const kind = health.instance?.kind || (portableRunning ? 'portable' : null)
+      const maintenanceBusy = c.pendingKeys.some(key => /^(backend|module:|baseline:|oas-runtime:|oas:apply|oas:rollback)/.test(key)) || portableInstalling || modules.some(item => item.installing)
+      const sections = [
         c.offline ? h('div', { key: 'offline', className: 'onm-notice fail' }, t('diag.healthOffline') + ' · ' + (c.error || t('status.off'))) : null,
-        h('section', { key: 'metrics', className: 'onm-grid metrics' },
-          h('div', { className: 'onm-card onm-metric' },
-            h('span', null, t('common.service')),
-            h('strong', null, health.ok ? t('common.online') : t('common.offline')),
-            h('em', null, (health.mode || '—') + ' · ' + (health.executor || '—')),
-          ),
-          h('div', { className: 'onm-card onm-metric' },
-            h('span', null, t('diag.scheduler')),
-            h('strong', null, scheduler.running ? t('diag.running') : t('diag.stopped')),
-            h('em', null, tf(t, 'diag.schedulesEnabled', { n: scheduler.schedules_enabled === undefined ? 0 : scheduler.schedules_enabled })),
-          ),
-          h('div', { className: 'onm-card onm-metric' },
-            h('span', null, t('diag.oasTree')),
-            h('strong', null, oas.branch || t('common.unknown')),
-            h('em', null, (oas.head ? oas.head.short : '—') + ' · ' + String(oas.dirty_count === undefined ? '—' : oas.dirty_count) + ' ' + t('common.dirty')),
-          ),
-          h('div', { className: 'onm-card onm-metric' },
-            h('span', null, t('diag.devicesReady')),
-            h('strong', null, String(scheduler.device_ready === undefined ? 0 : scheduler.device_ready) + ' / ' + String(scheduler.device_total === undefined ? 0 : scheduler.device_total)),
-            h('em', null, t('diag.ticks') + ' ' + String(scheduler.ticks === undefined ? 0 : scheduler.ticks) + ' · ' + t('diag.overdue') + ' ' + String(scheduler.schedules_overdue === undefined ? 0 : scheduler.schedules_overdue)),
-          ),
-        ),
+        c.maintenanceResult ? h('section', { key: 'maintenance-result', className: 'onm-card' },
+          h('h2', { className: 'onm-card-title' }, t('diag.result')),
+          h('div', { className: 'onm-notice ' + (c.maintenanceResult.ok && !c.maintenanceResult.warnings?.length ? 'ok' : 'fail') }, c.maintenanceResult.message),
+          (c.maintenanceResult.warnings || []).map((warning,i) => h('p', {key:i, className:'onm-row-sub'}, warning))) : null,
         h('section', { key: 'actions', className: 'onm-card' },
           h('div', { className: 'onm-card-head' },
             h('div', null,
               h('h2', { className: 'onm-card-title' }, t('diag.actions')),
-              h('p', { className: 'onm-card-desc' }, t('diag.subtitle')),
+              h('p', { className: 'onm-card-desc' }, t('diag.advancedHint')),
             ),
           ),
           h('div', { className: 'onm-hstack' },
             h('button', {
               type: 'button', className: 'onm-btn small', onClick: c.tickNow,
-              disabled: c.offline || c.busy === 'tick',
-            }, c.busy === 'tick' ? t('common.loading') : t('actions.tick')),
+              disabled: c.offline || c.isBusy('tick'),
+            }, c.isBusy('tick') ? t('common.loading') : t('actions.tick')),
             h('button', {
               type: 'button', className: 'onm-btn small', onClick: c.warmAll,
-              disabled: c.offline || c.busy === 'warm:all',
-            }, c.busy === 'warm:all' ? t('common.loading') : t('actions.warmAll')),
+              disabled: c.offline || c.isBusy('warm:all'),
+            }, c.isBusy('warm:all') ? t('common.loading') : t('actions.warmAll')),
             h('button', {
               type: 'button', className: 'onm-btn small', onClick: c.exportDiagnose,
-              disabled: c.offline || c.busy === 'export',
-            }, c.busy === 'export' ? t('actions.exporting') : t('actions.export')),
-            (!c.offline && canStart) ? h('button', {
+              disabled: c.offline || c.isBusy('export'),
+            }, c.isBusy('export') ? t('actions.exporting') : t('actions.export')),
+            (!c.offline && canStart && kind === 'source') ? h('button', {
               type: 'button', className: 'onm-btn small',
               onClick: () => {
                 if (typeof window === 'undefined' || window.confirm(t('diag.stopConfirm'))) c.stopBackend()
               },
-              disabled: c.busy === 'backend',
+              disabled: c.isBusy('backend'),
             }, t('actions.stopService')) : null,
           ),
           c.exportResult
@@ -1799,13 +1988,14 @@ window.__ModuleLoader__.load({
                 t('diag.exported') + ' · ' + t('diag.exportPath') + '：' + (c.exportResult.path || ''))
             : null,
         ),
+        h(OasCard, { key: 'source-update', t, c }),
         h('section', { key: 'oas-runtime', className: 'onm-card' },
           h('div', { className: 'onm-card-head' },
             h('div', null,
               h('h2', { className: 'onm-card-title' }, t('diag.oasRuntime')),
               h('p', { className: 'onm-card-desc' }, t('diag.oasRuntimeDesc')),
             ),
-            h(Badge, { tone: runtimeExists ? 'ok' : '' }, runtimeExists ? t('common.online') : t('common.offline')),
+            h(Badge, { tone: runtimeExists ? 'ok' : '' }, runtimeExists ? t('diag.available') : t('diag.notDetected')),
           ),
           h('dl', { className: 'onm-kv' },
             h('dt', null, t('diag.oasMirror')),
@@ -1835,8 +2025,8 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
                 h('button', {
                   type: 'button', className: 'onm-btn primary small', onClick: c.installOasRuntime,
-                  disabled: c.busy === 'oas-runtime:install',
-                }, c.busy === 'oas-runtime:install' ? t('diag.oasInstalling') : t('diag.oasInstall')),
+                  disabled: c.isBusy('oas-runtime:install'),
+                }, c.isBusy('oas-runtime:install') ? t('diag.oasInstalling') : t('diag.oasInstall')),
                 h('span', { className: 'onm-row-sub' }, tf(t, 'diag.oasInstallHint', { path: runtime.oasRoot || '' })),
               )
             : null,
@@ -1844,22 +2034,22 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
                 h('button', {
                   type: 'button', className: 'onm-btn small', onClick: c.checkOasRuntime,
-                  disabled: !runtime.canUpdate || c.busy === 'oas-runtime:check',
-                }, c.busy === 'oas-runtime:check' ? t('actions.checking') : t('actions.checkUpdate')),
+                  disabled: !runtime.canUpdate || c.isBusy('oas-runtime:check'),
+                }, c.isBusy('oas-runtime:check') ? t('actions.checking') : t('actions.checkUpdate')),
                 h('button', {
                   type: 'button', className: 'onm-btn small', onClick: c.updateOasRuntime,
-                  disabled: !runtime.canUpdate || c.busy === 'oas-runtime:update' || runtime.tracked_dirty > 0,
-                }, c.busy === 'oas-runtime:update' ? t('diag.oasUpdating') : t('diag.oasUpdateNow')),
+                  disabled: !runtime.canUpdate || c.isBusy('oas-runtime:update') || runtime.tracked_dirty > 0,
+                }, c.isBusy('oas-runtime:update') ? t('diag.oasUpdating') : t('diag.oasUpdateNow')),
                 (c.data.backend && c.data.backend.canStart !== false)
                   ? h('button', {
                       type: 'button', className: 'onm-btn small', onClick: c.restartBackend,
-                      disabled: c.busy === 'backend',
-                    }, c.busy === 'backend' ? t('diag.oasRestarting') : t('diag.oasRestart'))
+                      disabled: c.isBusy('backend'),
+                    }, c.isBusy('backend') ? t('diag.oasRestarting') : t('diag.oasRestart'))
                   : null,
               )
             : null,
           runtimeExists && runtime.tracked_dirty > 0
-            ? h('div', { className: 'onm-notice fail', style: { marginTop: '10px' } }, t('diag.oasTrackedDirty'))
+            ? h('div', { className: 'onm-notice', style: { marginTop: '10px' } }, t('diag.oasTrackedDirty'))
             : null,
           runtimeCheck
             ? h('div', { className: 'onm-notice ' + (runtimeCheck.ok ? '' : 'fail'), style: { marginTop: '10px' } },
@@ -1871,7 +2061,7 @@ window.__ModuleLoader__.load({
                   : (runtimeCheck.message || t('overview.checkFailed')))
             : null,
           runtimeResult
-            ? h('div', { className: 'onm-notice ' + (runtimeResult.ok ? 'ok' : 'fail'), style: { marginTop: '10px' } },
+            ? h('div', { className: 'onm-notice ' + (runtimeResult.ok && !runtimeResult.warnings?.length ? 'ok' : 'fail'), style: { marginTop: '10px' } },
                 runtimeResult.message || (runtimeResult.ok ? t('diag.oasUpdated') : t('toast.failed')))
             : null,
           h('div', { className: 'onm-row-sub', style: { marginTop: '8px' } }, t('diag.oasUpdateHint')),
@@ -1909,7 +2099,7 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'onm-notice fail', style: { marginTop: '12px' } }, portableError)
             : null,
           h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
-            (!portableInstalled && (portableCanInstall || portableInstalling || c.busy === 'backend-runtime:install'))
+            (!portableInstalled && (portableCanInstall || portableInstalling || c.isBusy('backend-runtime:install')))
               ? h('button', {
                   type: 'button', className: 'onm-btn primary small',
                   onClick: () => {
@@ -1917,14 +2107,14 @@ window.__ModuleLoader__.load({
                       c.installBackendRuntime()
                     }
                   },
-                  disabled: c.busy === 'backend-runtime:install' || portableInstalling,
-                }, (c.busy === 'backend-runtime:install' || portableInstalling) ? t('diag.backendInstalling') : t('diag.backendInstall'))
+                  disabled: c.isBusy('backend-runtime:install') || portableInstalling,
+                }, (c.isBusy('backend-runtime:install') || portableInstalling) ? t('diag.backendInstalling') : t('diag.backendInstall'))
               : null,
-            (portableInstalled && !portableRunning)
+            (portableInstalled && !portableRunning && c.offline)
               ? h('button', {
                   type: 'button', className: 'onm-btn primary small', onClick: c.startBackendRuntime,
-                  disabled: c.busy === 'backend-runtime:start',
-                }, c.busy === 'backend-runtime:start' ? t('diag.backendStarting') : t('diag.backendStart'))
+                  disabled: maintenanceBusy,
+                }, c.isBusy('backend-runtime:start') ? t('diag.backendStarting') : t('diag.backendStart'))
               : null,
             portableRunning
               ? h('button', {
@@ -1932,8 +2122,8 @@ window.__ModuleLoader__.load({
                   onClick: () => {
                     if (typeof window === 'undefined' || window.confirm(t('diag.backendConfirmStop'))) c.stopBackendRuntime()
                   },
-                  disabled: c.busy === 'backend-runtime:stop',
-                }, c.busy === 'backend-runtime:stop' ? t('diag.backendStopping') : t('diag.backendStop'))
+                  disabled: maintenanceBusy,
+                }, c.isBusy('backend-runtime:stop') ? t('diag.backendStopping') : t('diag.backendStop'))
               : null,
           ),
           portable.log
@@ -1959,7 +2149,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'onm-module-head' },
                   h('div', null,
                     h('h3', null, def.name),
-                    h('p', { className: 'onm-card-desc' }, def.description),
+                    h('p', { className: 'onm-card-desc' }, def.id === 'local-llm' ? t('diag.moduleDescription') : def.description),
                   ),
                   h(Badge, {
                     tone: def.installed ? 'ok' : def.error ? 'bad' : installing ? 'warn' : '',
@@ -1974,6 +2164,15 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'onm-row-sub' }, `${t('diag.moduleRequiresCore')} ${def.requiresCore}`),
                   !def.supported ? h('span', { className: 'onm-row-sub' }, t('diag.moduleUnsupported')) : null,
                 ),
+                def.installed ? h('p', {className:'onm-row-sub'},
+                  portableRunning && (health.instance?.modules || []).includes(def.id + '@' + def.version)
+                    ? t('diag.moduleMounted') : t('diag.modulePending')) : null,
+                def.installed && portableRunning ? h('p', {className:'onm-row-sub'}, t('diag.moduleStopFirst')) : null,
+                (!def.installed && def.supported && !def.coreReady && !def.installing)
+                  ? h('p', { className: 'onm-row-sub' }, def.coreVersion
+                      ? tf(t, 'diag.moduleCoreVersion', { current: def.coreVersion, required: def.requiresCore })
+                      : t('diag.moduleCoreMissing'))
+                  : null,
                 def.error
                   ? h('div', { className: 'onm-notice fail', style: { marginTop: '8px' } }, def.error)
                   : null,
@@ -1986,8 +2185,8 @@ window.__ModuleLoader__.load({
                             c.installModule(def.id)
                           }
                         },
-                        disabled: c.busy === 'module:install' || installing,
-                      }, (c.busy === 'module:install' || installing) ? t('diag.moduleInstalling') : t('diag.moduleInstall'))
+                        disabled: maintenanceBusy || !portableInstalled,
+                      }, (c.isBusy('module:install') || installing) ? t('diag.moduleInstalling') : t('diag.moduleInstall'))
                     : null,
                   def.installed
                     ? h('button', {
@@ -1997,15 +2196,15 @@ window.__ModuleLoader__.load({
                             c.removeModule(def.id)
                           }
                         },
-                        disabled: c.busy === 'module:remove',
-                      }, c.busy === 'module:remove' ? t('diag.moduleInstalling') : t('diag.moduleRemove'))
+                        disabled: maintenanceBusy || portableRunning,
+                      }, c.isBusy('module:remove') ? t('diag.moduleInstalling') : t('diag.moduleRemove'))
                     : null,
                   (portableInstalled || portableRunning)
                     ? h('button', {
                         type: 'button', className: 'onm-btn ghost small',
                         onClick: c.restartBackendRuntime,
-                        disabled: c.busy === 'backend-runtime:restart' || c.busy === 'backend-runtime:start',
-                      }, (c.busy === 'backend-runtime:restart' || c.busy === 'backend-runtime:start')
+                        disabled: maintenanceBusy || (!c.offline && !portableRunning),
+                      }, (c.isBusy('backend-runtime:restart') || c.isBusy('backend-runtime:start'))
                         ? t('diag.moduleRestarting')
                         : t('diag.moduleRestart'))
                     : null,
@@ -2023,7 +2222,7 @@ window.__ModuleLoader__.load({
               h('h2', { className: 'onm-card-title' }, t('diag.baseline')),
               h('p', { className: 'onm-card-desc' }, t('diag.baselineDesc')),
             ),
-            h(Badge, { tone: canBaseline ? 'ok' : '' }, canBaseline ? t('common.online') : t('common.offline')),
+            h(Badge, { tone: canBaseline ? 'ok' : '' }, canBaseline ? t('diag.available') : t('diag.notDetected')),
           ),
           canBaseline
             ? h('dl', { className: 'onm-kv' },
@@ -2041,8 +2240,8 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
                 h('button', {
                   type: 'button', className: 'onm-btn small', onClick: c.createBaseline,
-                  disabled: c.busy === 'baseline:create',
-                }, c.busy === 'baseline:create' ? t('diag.baselineCreating') : t('diag.baselineCreate')),
+                  disabled: c.isBusy('baseline:create'),
+                }, c.isBusy('baseline:create') ? t('diag.baselineCreating') : t('diag.baselineCreate')),
               )
             : null,
           baselines.length
@@ -2061,8 +2260,8 @@ window.__ModuleLoader__.load({
                       onClick: () => {
                         if (typeof window === 'undefined' || window.confirm(t('diag.baselineConfirmRestore'))) c.restoreBaseline(item.name)
                       },
-                      disabled: c.busy === 'baseline:restore:' + item.name,
-                    }, c.busy === 'baseline:restore:' + item.name ? t('diag.baselineRestoring') : t('diag.baselineRestore')),
+                      disabled: c.isBusy('baseline:restore:' + item.name),
+                    }, c.isBusy('baseline:restore:' + item.name) ? t('diag.baselineRestoring') : t('diag.baselineRestore')),
                   ),
                 )),
               )
@@ -2072,7 +2271,7 @@ window.__ModuleLoader__.load({
         h('section', { key: 'paths', className: 'onm-card' },
           h('div', { className: 'onm-card-head' },
             h('div', null,
-              h('h2', { className: 'onm-card-title' }, t('diag.autostart')),
+              h('h2', { className: 'onm-card-title' }, t('diag.pathsTitle')),
               h('p', { className: 'onm-card-desc' }, autostart.enabled ? t('diag.autostartOn') : t('diag.autostartOff')),
             ),
           ),
@@ -2089,22 +2288,57 @@ window.__ModuleLoader__.load({
             h('dd', { className: 'onm-mono' }, 'data/diagnose/'),
           ),
         ),
-        h('section', { key: 'oas-links', className: 'onm-card' },
-          h('div', { className: 'onm-card-head' },
-            h('div', null,
-              h('h2', { className: 'onm-card-title' }, t('overview.oasTitle')),
-              h('p', { className: 'onm-card-desc' }, t('overview.oasBody')),
-            ),
-          ),
-          h('div', { className: 'onm-hstack' },
-            h('a', { className: 'onm-btn ghost small', href: OAS_DOCS, target: '_blank', rel: 'noreferrer' }, t('actions.docs') + ' ↗'),
-            h('a', { className: 'onm-btn ghost small', href: OAS_REPO, target: '_blank', rel: 'noreferrer' }, t('actions.repo') + ' ↗'),
-          ),
-        ),
+
+      ]
+      const byKey = Object.fromEntries(sections.filter(Boolean).map(section => [section.key, section]))
+      const groups = { summary: 'diag.summary', oas: 'diag.maintainOas', environment: 'diag.environment', advanced: 'diag.advanced' }
+      const items = {
+        oas: [['source-update', 'diag.maintainOas'], ['baseline', 'diag.baseline'], ['oas-runtime', 'diag.mirrorTitle']],
+        environment: [['backend-runtime', 'diag.backendRuntime'], ['modules', 'diag.modules']],
+        advanced: [['actions', 'diag.actions'], ['paths', 'diag.pathsTitle']],
+      }
+      // Mount a maintenance panel only after an explicit choice. This also avoids
+      // host details styles exposing every closed card at once.
+      const disclosure = ([key, title]) => h('section', { key, className: 'onm-diagnostic-section' },
+        h('button', { type: 'button', className: 'onm-disclosure',
+          'aria-expanded': expanded === key, 'aria-controls': 'onm-diagnostic-' + key,
+          onClick: () => setExpanded(expanded === key ? '' : key) },
+          h('span', null, t(title)), h('span', { 'aria-hidden': true }, expanded === key ? '−' : '+')),
+        expanded === key ? h('div', { id: 'onm-diagnostic-' + key },
+          key === 'oas-runtime' ? h('p', { className: 'onm-row-sub' }, t('diag.mirrorHint')) : null,
+          byKey[key]) : null)
+      return [
+        h('div', { key: 'title' }, h('h2', { className: 'onm-page-title' }, t('diag.title')),
+          h('p', { className: 'onm-page-desc' }, t('diag.simpleHint'))),
+        h('div', { key: 'connection', className: 'onm-diagnostic-status', role: 'status' },
+          h(Badge, { tone: health.ok ? 'ok' : 'bad' }, health.ok ? t('common.online') : t('diag.healthOffline')),
+          h('span', null, kind === 'source' ? t('diag.sourceInstance') : kind === 'portable' ? t('diag.portableInstance') : t('diag.unknownInstance')),
+          h('span', null, t('diag.scheduler') + ' · ' + (scheduler.running ? t('diag.running') : t('diag.stopped'))),
+          h('span', null, t('diag.devicesReady') + ' · ' + (scheduler.device_ready ?? '—') + ' / ' + (scheduler.device_total ?? '—'))),
+        byKey.offline, byKey['maintenance-result'],
+        maintenanceBusy ? h('p', { key: 'maintenance-progress', className: 'onm-notice', role: 'status' }, t('diag.maintenanceBusy')) : null,
+        portableError ? h('div', { key: 'install-error', className: 'onm-notice fail', role: 'status' }, portableError) : null,
+        h('nav', { key: 'navigation', className: 'onm-diagnostic-nav', 'aria-label': t('diag.title') },
+          Object.entries(groups).map(([key, title]) => h('button', { key, type: 'button',
+            className: 'onm-btn small' + (group === key ? ' primary' : ''), 'aria-pressed': group === key,
+            onClick: () => { setGroup(key); setExpanded('') } }, t(title)))),
+        group === 'summary' ? h('section', { key: 'help', className: 'onm-card' },
+          h('h3', { className: 'onm-card-title' }, t('diag.summary')),
+          h('p', { className: 'onm-card-desc' }, t('diag.troubleshootHint')),
+          h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
+            h('button', { type: 'button', className: 'onm-btn small', onClick: c.refresh, disabled: c.isBusy('refresh') }, t('actions.refresh')),
+            h('button', { type: 'button', className: 'onm-btn small', onClick: c.exportDiagnose,
+              disabled: c.offline || c.isBusy('export') }, c.isBusy('export') ? t('actions.exporting') : t('actions.export'))),
+          c.exportResult ? h('p', { className: 'onm-row-sub', role: 'status' }, c.exportResult.message || t('diag.exported'), ' · ', c.exportResult.path) : null,
+          Number(oas.dirty_count || runtime.dirty_count) > 0 ? h('p', { className: 'onm-row-sub', style: { marginTop: '14px' } }, t('diag.localChangesHint')) : null) : null,
+        group === 'environment' && kind === 'source' ? h('p', { key: 'source-hint', className: 'onm-notice' }, t('diag.sourceModeHint')) : null,
+        group === 'advanced' ? h('p', { key: 'advanced-hint', className: 'onm-notice' }, t('diag.advancedHint')) : null,
+        ...(items[group] || []).map(disclosure),
       ]
     }
 
     function Rail(props) {
+      const [expanded, setExpanded] = useState(false)
       const t = props.t
       const c = props.c
       const device = currentDevice(c.data)
@@ -2113,7 +2347,11 @@ window.__ModuleLoader__.load({
         .slice()
         .sort((left, right) => Number(right.ts || right.started_at || 0) - Number(left.ts || left.started_at || 0))
         .slice(0, 7)
-      return h('aside', { className: 'onm-rail' },
+      return h('section', { className: 'onm-observe' },
+        h('button', { type: 'button', className: 'onm-disclosure', 'aria-expanded': expanded,
+          'aria-controls': 'onm-observation-content', onClick: () => setExpanded(!expanded) },
+          t('observe.title'), h('span', { 'aria-hidden': true }, expanded ? '−' : '+')),
+        expanded ? h('div', { className: 'onm-rail', id: 'onm-observation-content' },
         h('section', { className: 'onm-card' },
           h('div', { className: 'onm-card-head' },
             h('div', null,
@@ -2157,7 +2395,7 @@ window.__ModuleLoader__.load({
               )
             : h('div', { className: 'onm-empty' }, t('rail.noRecent')),
         ),
-      )
+      ) : null)
     }
 
     function TaskDetail(props) {
@@ -2165,9 +2403,10 @@ window.__ModuleLoader__.load({
       const c = props.c
       const task = props.task
       const closeRef = useRef(null)
-      const [device, setDevice] = useState(task.device && task.device.assigned ? task.device.assigned : (c.data.device || ''))
-      const [count, setCount] = useState(task.count && task.count.supported ? String(task.count.value === undefined ? task.count.default : task.count.value) : '')
+      const [device, setDevice] = useState(props.draft?.device ?? task.device?.assigned ?? '')
+      const [count, setCount] = useState(props.draft?.count !== undefined ? String(props.draft.count) : task.count?.supported ? String(task.count.value ?? task.count.default) : '')
       const [options, setOptions] = useState(() => {
+        if (props.draft?.options) return props.draft.options
         const initial = {}
         for (const [key, meta] of Object.entries(task.options || {})) {
           initial[key] = meta.value === undefined ? meta.default : meta.value
@@ -2175,14 +2414,34 @@ window.__ModuleLoader__.load({
         return initial
       })
       const [saving, setSaving] = useState(false)
+      const alive = useRef(true)
 
       useEffect(() => {
-        if (closeRef.current) closeRef.current.focus()
+        alive.current = true
+        const previous = document.activeElement
+        const background = document.querySelector('.onm-page')
+        const wasInert = background?.inert
+        if (background) background.inert = true
+        closeRef.current?.focus()
         const onKey = (event) => {
-          if (event.key === 'Escape') props.onClose()
+          if (event.key === 'Escape') { event.preventDefault(); props.onClose() }
+          if (event.key === 'Tab') {
+            const dialog = closeRef.current?.closest('[role="dialog"]')
+            const items = [...(dialog?.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, a[href]') || [])]
+              .filter((item) => item.getClientRects().length)
+            const first = items[0], last = items[items.length - 1]
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+          }
         }
         window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
+        return () => {
+          alive.current = false
+          window.removeEventListener('keydown', onKey)
+          if (background) background.inert = wasInert
+          if (previous?.isConnected) previous.focus()
+          else document.querySelector('.onm-tab[aria-current="page"]')?.focus()
+        }
       }, [props.onClose])
 
       const target = device || c.data.device || ''
@@ -2190,14 +2449,10 @@ window.__ModuleLoader__.load({
       const running = target ? c.data.running[target] : null
       const state = taskState(t, task)
 
-      let reason = ''
-      if (isExpired(task)) reason = t('task.disabledReason.expired')
-      else if (task.entry_state === 'frozen') reason = t('task.disabledReason.frozen')
-      else if (task.entry_state === 'unwired') reason = t('task.disabledReason.unwired')
-      else if (task.enabled === false) reason = t('task.disabledReason.off')
-      else if (!selected || !selected.online) reason = t('task.disabledReason.noDevice')
-      else if (running) reason = t('task.disabledReason.busy')
-      const canRun = !reason && !c.busy
+      const validCount = !task.count?.supported || (Number.isInteger(Number(count))
+        && Number(count) >= 1 && Number(count) <= Number(task.count.max))
+      const reason = taskRunReason(c, task, t, target) || (!validCount ? tf(t, 'task.invalidCount', { max: task.count.max }) : '')
+      const canRun = !reason && !saving && !c.isBusy('save:' + task.id)
 
       const deviceOptions = [h('option', { key: 'follow', value: '' }, t('common.followDevice'))].concat(
         (c.data.devices || []).map((item) => h('option', {
@@ -2213,10 +2468,11 @@ window.__ModuleLoader__.load({
       }
 
       const saveNow = async () => {
+        if (!validCount) { c.notify(tf(t, 'task.invalidCount', { max: task.count.max }), 'fail'); return }
         setSaving(true)
         const ok = await c.saveTaskDefaults(task.id, device, count === '' ? undefined : Number(count), options)
-        setSaving(false)
-        if (ok) props.onClose()
+        if (alive.current) setSaving(false)
+        if (ok) { props.onSaved(); props.onClose() }
       }
 
       const toggleNow = () => c.toggleTask(task.id, task.enabled === false)
@@ -2248,20 +2504,20 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'onm-form', style: { marginTop: '16px', flexDirection: 'column', alignItems: 'stretch' } },
             h(Field, { label: t('task.device') },
-              h('select', { className: 'onm-select', value: device, onChange: (event) => setDevice(event.target.value) }, deviceOptions),
+              h('select', { className: 'onm-select', value: device, onChange: (event) => { setDevice(event.target.value); props.onDraft({ device: event.target.value }) } }, deviceOptions),
             ),
             task.count && task.count.supported
               ? h(Field, { label: t('task.count') + ' · 1–' + task.count.max },
                   h('input', {
                     className: 'onm-input', type: 'number', min: 1, max: task.count.max,
-                    value: count, onChange: (event) => setCount(event.target.value),
+                    value: count, onChange: (event) => { setCount(event.target.value); props.onDraft({ count: event.target.value }) },
                   }),
                 )
               : null,
             Object.entries(task.options || {}).map(([key, meta]) => h(Field, { key, label: meta.label || key },
               h('select', {
                 className: 'onm-select', value: options[key] === undefined ? '' : options[key],
-                onChange: (event) => setOptions(Object.assign({}, options, { [key]: event.target.value })),
+                onChange: (event) => { const next = { ...options, [key]: event.target.value }; setOptions(next); props.onDraft({ options: next }) },
               }, (meta.choices || []).map(([value, label]) => h('option', { key: value, value }, label))),
             )),
           ),
@@ -2280,12 +2536,12 @@ window.__ModuleLoader__.load({
           h('div', { className: 'onm-modal-actions' },
             h('button', {
               type: 'button', className: 'onm-btn small', onClick: toggleNow,
-              disabled: c.busy === 'toggle:' + task.id,
+              disabled: c.isBusy('toggle:' + task.id),
             }, task.enabled === false ? t('actions.enable') : t('actions.disable')),
             h('button', {
               type: 'button', className: 'onm-btn small', onClick: saveNow,
-              disabled: saving || task.entry_state !== 'ready' || c.busy === 'save:' + task.id,
-            }, saving || c.busy === 'save:' + task.id ? t('actions.saving') : t('actions.save')),
+              disabled: !validCount || saving || task.entry_state !== 'ready' || c.isBusy('save:' + task.id),
+            }, saving || c.isBusy('save:' + task.id) ? t('actions.saving') : t('actions.save')),
             h('button', {
               type: 'button', className: 'onm-btn primary', onClick: runNow, disabled: !canRun,
             }, t('actions.run')),
@@ -2297,6 +2553,13 @@ window.__ModuleLoader__.load({
     const CSS = `
 .onm-root{position:relative;display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.55}
 .onm-root *{box-sizing:border-box}
+.onm-task-list{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}
+.onm-task-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-top:1px solid var(--dsw-alias-border-l1)}
+.onm-task-row:first-child{border-top:0}.onm-task-row.off .onm-row-main{opacity:.65}
+.onm-executions{margin:0 0 18px}.onm-execution+.onm-execution{border-top:1px solid var(--dsw-alias-border-l1)}
+.onm-result-history{margin-top:8px}.onm-result-history>summary,.onm-observe>summary{cursor:pointer;color:var(--dsw-alias-label-secondary);padding:6px 0}
+.onm-observe{width:100%;border-top:1px solid var(--dsw-alias-border-l1);margin-top:18px;padding-top:8px}.onm-observe .onm-rail{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));margin-top:10px}
+.onm-main{width:100%}@media(max-width:600px){.onm-task-row{align-items:flex-start;flex-direction:column;gap:8px}.onm-task-row .onm-row-actions{width:100%;justify-content:flex-start}.onm-page{padding:18px 16px 32px}}
 .onm-page{width:100%;max-width:1240px;margin:0 auto;padding:26px 30px 56px}
 .onm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
 .onm-brand{display:flex;gap:14px;align-items:center;min-width:0}
@@ -2320,12 +2583,12 @@ window.__ModuleLoader__.load({
 .onm-btn.ghost{background:transparent}
 .onm-btn.small{font-size:11.5px;padding:5px 10px}
 .onm-btn:disabled{opacity:.45;cursor:not-allowed}
-.onm-tabs{display:flex;gap:2px;border-bottom:1px solid var(--dsw-alias-border-l1);margin-bottom:20px;overflow-x:auto}
+.onm-tabs{display:flex;gap:2px;min-height:43px;overflow-y:hidden;border-bottom:1px solid var(--dsw-alias-border-l1);margin-bottom:20px;overflow-x:auto}
 .onm-tab{appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;padding:9px 14px;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
 .onm-tab:hover{color:var(--dsw-alias-label-primary)}
 .onm-tab.active{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:600}
-.onm-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
-.onm-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.onm-layout{display:flex;flex-direction:column;gap:20px;align-items:start}
+.onm-main{width:100%;display:flex;flex-direction:column;gap:16px;min-width:0}
 .onm-rail{display:flex;flex-direction:column;gap:14px;min-width:0;position:sticky;top:0}
 @media (max-width:1060px){.onm-layout{grid-template-columns:minmax(0,1fr)}.onm-rail{position:static}}
 .onm-card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:16px 18px;min-width:0}
@@ -2378,7 +2641,14 @@ window.__ModuleLoader__.load({
 .onm-recent-time{color:var(--dsw-alias-label-secondary);font-size:10px}
 .onm-recent-title{font-size:12px;font-weight:550;margin-top:1px}
 .onm-recent-body{color:var(--dsw-alias-label-secondary);font-size:11px;margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.onm-diagnostic-status{display:flex;gap:12px;flex-wrap:wrap;align-items:center;color:var(--dsw-alias-label-secondary);font-size:12px}
+.onm-diagnostic-nav{display:flex;gap:8px;flex-wrap:wrap}
+.onm-diagnostic-section{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;overflow:hidden}
+.onm-disclosure{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:16px 18px;border:0;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer}
+.onm-disclosure:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-3px}
+.onm-diagnostic-section>div{padding:0 16px 16px}.onm-diagnostic-section .onm-card{border:0;padding:12px 0 0}
 .onm-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.onm-maintenance>summary{cursor:pointer;font-weight:600;padding:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px}.onm-maintenance[open]>summary{margin-bottom:10px}.onm-executions .onm-result-history{max-height:260px;overflow:auto}.onm-modal .onm-field{flex:none}
 .onm-field{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 160px}
 .onm-field.grow{flex:1 1 240px}
 .onm-field > span{font-size:10.5px;color:var(--dsw-alias-label-secondary);letter-spacing:.03em}
@@ -2452,9 +2722,20 @@ window.__ModuleLoader__.load({
       const c = useConsole(t)
       const [tab, setTab] = useState('overview')
       const [detailId, setDetailId] = useState(null)
+      const [taskDrafts, setTaskDrafts] = useState({})
+      const [drafts, setDrafts] = useState({ tasks: { search: '', filter: 'all', visible: 24 }, plans: { text: '', device: '' }, devices: { serial: '', name: '' } })
+      const updateDraft = (page, patch) => setDrafts((prev) => {
+        const { __expected, ...values } = patch
+        const revision = prev[page]._revision || 0
+        if (__expected !== undefined && __expected !== revision) return prev
+        return { ...prev, [page]: { ...prev[page], ...values, _revision: revision + 1 } }
+      })
       const task = detailId ? taskById(c.data, detailId) : null
       const closeDetail = useCallback(() => setDetailId(null), [])
-      const openTask = useCallback((id) => { if (id) setDetailId(id) }, [])
+      const openTask = useCallback((id, request, device) => {
+        if (request) setTaskDrafts((prev) => ({ ...prev, [id]: { ...request, device } }))
+        if (id) setDetailId(id)
+      }, [])
 
       return h(ErrorBoundary, null,
         h('div', { className: 'onm-root' },
@@ -2462,21 +2743,27 @@ window.__ModuleLoader__.load({
           h('div', { className: 'onm-page' },
             h(Header, { t, c }),
             h(TabBar, { t, tab, setTab }),
+            Object.keys(c.data.resourceErrors).length ? h('div', { className: 'onm-notice fail', role: 'status' },
+              t('data.partial'), ' · ', Object.keys(c.data.resourceErrors).map(key => t('data.' + (['health','catalog','running','devices','schedules','executions'].includes(key) ? key : 'maintenance'))).join(', '),
+              h('button', { type: 'button', className: 'onm-btn small', onClick: c.refresh }, t('actions.retry'))) : null,
+            tab !== 'diagnostics' || executionRows(c).length ? h(ExecutionPanel, { t, c, onOpenTask: openTask }) : null,
             h('div', { className: 'onm-layout' },
               h('main', { className: 'onm-main' },
                 c.loading && !c.data.catalog.length && c.offline
                   ? h('div', { className: 'onm-card onm-empty' }, t('common.loading'))
                   : null,
                 tab === 'overview' ? h(Overview, { t, c, onTab: setTab, onOpenTask: openTask })
-                  : tab === 'tasks' ? h(Tasks, { t, c, onOpenTask: openTask })
-                    : tab === 'plans' ? h(Plans, { t, c })
-                      : tab === 'devices' ? h(Devices, { t, c })
+                  : tab === 'tasks' ? h(Tasks, { t, c, onOpenTask: openTask, draft: drafts.tasks, onDraft: (patch) => updateDraft('tasks', patch) })
+                    : tab === 'plans' ? h(Plans, { t, c, draft: drafts.plans, onDraft: (patch) => updateDraft('plans', patch) })
+                      : tab === 'devices' ? h(Devices, { t, c, draft: drafts.devices, onDraft: (patch) => updateDraft('devices', patch) })
                         : h(Diagnostics, { t, c }),
               ),
               h(Rail, { t, c }),
             ),
           ),
-          task ? h(TaskDetail, { key: task.id, t, c, task, onClose: closeDetail }) : null,
+          task ? h(TaskDetail, { key: task.id, t, c, task, onClose: closeDetail, draft: taskDrafts[task.id],
+            onDraft: (patch) => setTaskDrafts((prev) => ({ ...prev, [task.id]: { ...prev[task.id], ...patch } })),
+            onSaved: () => setTaskDrafts((prev) => { const next = { ...prev }; delete next[task.id]; return next }) }) : null,
           c.toast ? h('div', {
             className: 'onm-toast' + (c.toast.tone === 'fail' ? ' fail' : ''),
             role: 'status', 'aria-live': 'polite',
