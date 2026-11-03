@@ -45,7 +45,7 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#main"
 
 ```text
 plugin_manager remove_bundle target="@local/dsh-onmyoji-console"
-plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.1"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.5.0"
 ```
 
 若结果返回 `restart-required`（替换已运行的包且未启用 HMR），重启 DSH 后生效。
@@ -56,8 +56,8 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.1
 插件按以下优先级读取配置（前者覆盖后者）：
 
 1. `~/.dsh/onmyoji-oas.json`
-2. 环境变量 `ONMYOJI_CONSOLE_URL` / `ONMYOJI_ROOT` / `ONMYOJI_OAS_ROOT` / `ONMYOJI_OAS_MIRROR` / `ONMYOJI_OAS_BRANCH` / `ONMYOJI_BASELINE_DIR` / `ONMYOJI_BACKEND_DIR` / `ONMYOJI_CONSOLE_BUNDLE`
-3. 插件行的 `config.consoleUrl` / `config.root` / `config.oasRoot` / `config.oasMirrorUrl` / `config.oasBranch` / `config.baselineDir` / `config.backendDir` / `config.consoleBundleUrl`（在 profile patch 里覆盖）
+2. 环境变量 `ONMYOJI_CONSOLE_URL` / `ONMYOJI_ROOT` / `ONMYOJI_OAS_ROOT` / `ONMYOJI_OAS_MIRROR` / `ONMYOJI_OAS_BRANCH` / `ONMYOJI_BASELINE_DIR` / `ONMYOJI_BACKEND_DIR` / `ONMYOJI_CONSOLE_BUNDLE` / `ONMYOJI_LOCAL_LLM_URL`
+3. 插件行的 `config.consoleUrl` / `config.root` / `config.oasRoot` / `config.oasMirrorUrl` / `config.oasBranch` / `config.baselineDir` / `config.backendDir` / `config.consoleBundleUrl` / `config.localLlmUrl`（在 profile patch 里覆盖）
 
 ```json
 {
@@ -68,7 +68,8 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.1
   "oasBranch": "dev",
   "baselineDir": "/Users/you/.dsh/onmyoji-oas/baselines",
   "backendDir": "/Users/you/.dsh/onmyoji-oas/backend",
-  "consoleBundleUrl": "https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz"
+  "consoleBundleUrl": "https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz",
+  "localLlmUrl": "https://github.com/githubdadada/onmyoji-backend/releases/download/local-llm-v1.0.0/local-llm-{platform}.tar.gz"
 }
 ```
 
@@ -84,6 +85,7 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.1
 - `baselineDir`：基线存放目录；默认 `~/.dsh/onmyoji-oas/baselines`。
 - `backendDir`：便携后端安装目录；默认 `~/.dsh/onmyoji-oas/backend`。
 - `consoleBundleUrl`：便携后端包地址；`{platform}` 会替换为 `darwin-arm64` / `win32-x64` 等。
+- `localLlmUrl`：可选本地 LLM 运行时模块地址；不装不影响核心 OAS 功能。
 - 修改配置文件后需要重新加载插件（或重启 DSH）才会生效。
 
 ## OAS 镜像下载/更新
@@ -178,6 +180,23 @@ SHA256: db5a33ca70e05ccbe7eb1336514a65b6f48d083fd3c45d130f437bab738c1587
 
 把它填到 `consoleBundleUrl` 即可。该地址是个人镜像，GitHub Release 作为长期备用源。
 
+### 可选组件（按需下载）
+
+核心包**不包含**本地 LLM。需要时在插件「诊断 → 可选组件」安装 `local-llm`：
+
+- 大小约 **157MB**：torch / transformers / accelerate 等运行时依赖。
+- **模型文件不在组件内**：可放到 `<backendDir>/console/Qwen_Qwen2.5-1.5B-Instruct`，
+  或在控制台配置 Ollama。
+- 安装/移除后需要重启便携后端才会生效。
+- 组件安装在 `<backendDir>/modules/local-llm/1.0.0`，后端启动时自动加入 `PYTHONPATH`；
+  不安装不影响 OAS 日常任务。
+
+```text
+腾讯云: http://124.221.0.251/oas/local-llm-darwin-arm64.tar.gz
+GitHub: https://github.com/githubdadada/onmyoji-backend/releases/download/local-llm-v1.0.0/local-llm-darwin-arm64.tar.gz
+SHA256: 9c61384bd903a00caafb9f9e9ee2005e2c56bc6a041969d4544d8d41f9cfc21b
+```
+
 ### 源码模式（自用）
 
 如果你已有控制台源码，不需要下载后端包：
@@ -238,8 +257,8 @@ gh repo create dsh-onmyoji-oas --public --source=. --remote=origin --push
 发版本：
 
 ```bash
-git tag v1.4.1
-git push origin v1.4.1
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 然后即可用 `#v1.1.0` 安装。

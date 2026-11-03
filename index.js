@@ -45,7 +45,7 @@ import {
 import { get as httpGet, request as httpRequest } from 'node:http'
 import { get as httpsGet, request as httpsRequest } from 'node:https'
 import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
@@ -61,6 +61,21 @@ const DEFAULT_BACKEND_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'backend')
 const DEFAULT_CONSOLE_BUNDLE = 'https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz'
 const DEFAULT_BASELINE_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'baselines')
 const installStates = new Map()
+const DEFAULT_LOCAL_LLM_URL = 'https://github.com/githubdadada/onmyoji-backend/releases/download/local-llm-v1.0.0/local-llm-{platform}.tar.gz'
+const MODULE_DEFS = [
+  {
+    id: 'local-llm',
+    name: '本地 LLM 运行时',
+    version: '1.0.0',
+    requiresCore: '1.5.0',
+    description: 'torch / transformers / accelerate 等本地 LLM 依赖；模型文件需单独放置，或使用 Ollama。',
+    urlTemplate: DEFAULT_LOCAL_LLM_URL,
+    platforms: {
+      'darwin-arm64': { size: 164294411, sha256: '9c61384bd903a00caafb9f9e9ee2005e2c56bc6a041969d4544d8d41f9cfc21b' },
+    },
+  },
+]
+const moduleStates = new Map()
 const NO_ROOT_MESSAGE = `未找到 OAS 控制台目录（需要 start.sh 与 web/server.py）。请先启动控制台，或在 ${CONFIG_PATH} 中配置 root。`
 
 function readConfigFile() {
@@ -160,10 +175,16 @@ function resolveSettings(rowConfig) {
       || file.consoleBundleUrl
       || DEFAULT_CONSOLE_BUNDLE,
   ).trim().replace(/\{platform\}/g, `${process.platform}-${process.arch}`)
+  const localLlmUrl = String(
+    rowConfig?.localLlmUrl
+      || process.env.ONMYOJI_LOCAL_LLM_URL
+      || file.localLlmUrl
+      || DEFAULT_LOCAL_LLM_URL,
+  ).trim().replace(/\{platform\}/g, `${process.platform}-${process.arch}`)
   return {
     consoleUrl, basePath, consoleHref, port, root,
     oasRoot, oasMirrorUrl, oasBranch, baselineDir,
-    backendDir, consoleBundleUrl,
+    backendDir, consoleBundleUrl, localLlmUrl,
     configPath: CONFIG_PATH,
   }
 }
@@ -999,6 +1020,147 @@ function beginBackendInstall(settings) {
   return { ok: true, installing: true, message: '开始安装后端' }
 }
 
+function moduleDefs(settings) {
+  const platform = `${process.platform}-${process.arch}`
+  return MODULE_DEFS.map((def) => {
+    const meta = def.platforms[platform]
+    const dir = join(settings.backendDir, 'modules', def.id, def.version)
+    const installed = Boolean(meta) && existsSync(join(dir, 'manifest.json'))
+    const state = moduleStates.get(def.id)
+    const url = (def.id === 'local-llm' ? settings.localLlmUrl : def.urlTemplate.replace(/\{platform\}/g, platform)) || ''
+    return {
+      id: def.id,
+      name: def.name,
+      version: def.version,
+      requiresCore: def.requiresCore,
+      description: def.description,
+      platform,
+      supported: Boolean(meta),
+      size: meta ? meta.size : 0,
+      sha256: meta ? meta.sha256 : '',
+      dir,
+      sitePackages: installed ? join(dir, 'site-packages') : '',
+      installed,
+      installing: Boolean(state && state.running),
+      error: state ? (state.error || '') : '',
+      url,
+      canInstall: Boolean(meta) && !installed && !(state && state.running) && Boolean(url),
+      model: def.id === 'local-llm'
+        ? {
+            path: join(settings.backendDir, 'console', 'Qwen_Qwen2.5-1.5B-Instruct'),
+            note: '模型文件不包含在组件内；可放到该目录，或使用 Ollama。',
+          }
+        : undefined,
+    }
+  })
+}
+
+function moduleStatus(settings) {
+  return {
+    ok: true,
+    platform: `${process.platform}-${process.arch}`,
+    modulesDir: join(settings.backendDir, 'modules'),
+    modules: moduleDefs(settings),
+  }
+}
+
+function installedModuleSitePaths(settings) {
+  return moduleDefs(settings)
+    .filter((def) => def.installed && def.sitePackages)
+    .map((def) => def.sitePackages)
+}
+
+async function installModuleAsync(settings, def) {
+  const modulesDir = join(settings.backendDir, 'modules')
+  const tmpDir = join(modulesDir, 'tmp')
+  mkdirSync(tmpDir, { recursive: true })
+  const archive = join(tmpDir, `${def.id}.tar.gz`)
+  const staging = join(tmpDir, `${def.id}-staging-${Date.now()}`)
+  logRuntime(settings.backendDir, `module ${def.id}: download ${def.url}`)
+  try {
+    await downloadToFile(def.url, archive)
+    const hash = createHash('sha256').update(readFileSync(archive)).digest('hex')
+    if (def.sha256 && hash.toLowerCase() !== def.sha256.toLowerCase()) {
+      throw new Error(`组件 SHA256 校验失败（期望 ${def.sha256}，实际 ${hash}）`)
+    }
+    await extractArchive(archive, staging)
+    if (!existsSync(join(staging, 'manifest.json')) || !existsSync(join(staging, 'site-packages'))) {
+      throw new Error('组件包缺少 manifest.json 或 site-packages')
+    }
+    const target = join(modulesDir, def.id, def.version)
+    rmSync(target, { recursive: true, force: true })
+    mkdirSync(dirname(target), { recursive: true })
+    renameSync(staging, target)
+    writeFileSync(join(target, 'installed.json'), JSON.stringify({
+      installed_at: new Date().toISOString(),
+      source: def.url,
+      sha256: hash,
+      size: def.size,
+      platform: def.platform,
+    }, null, 2))
+    logRuntime(settings.backendDir, `module ${def.id}: installed`)
+  } finally {
+    rmSync(archive, { force: true })
+    rmSync(staging, { recursive: true, force: true })
+  }
+}
+
+function beginModuleInstall(settings, id) {
+  const def = moduleDefs(settings).find((item) => item.id === id)
+  if (!def) throw new Error(`未知组件：${id}`)
+  if (!def.supported) throw new Error('当前平台暂不支持该组件')
+  if (def.installed) return { ok: true, installed: true, message: '组件已安装' }
+  const existing = moduleStates.get(id)
+  if (existing && existing.running) {
+    return { ok: true, installing: true, message: '组件安装正在进行' }
+  }
+  const state = { running: true, error: '' }
+  moduleStates.set(id, state)
+  installModuleAsync(settings, def)
+    .then(() => {
+      state.running = false
+      state.error = ''
+    })
+    .catch((error) => {
+      state.running = false
+      state.error = String(error?.message || error)
+      logRuntime(settings.backendDir, `module ${id} failed: ${state.error}`)
+    })
+  return { ok: true, installing: true, message: '开始安装组件' }
+}
+
+function removeModule(settings, id) {
+  const def = moduleDefs(settings).find((item) => item.id === id)
+  if (!def) throw new Error(`未知组件：${id}`)
+  const state = moduleStates.get(id)
+  if (state && state.running) throw new Error('组件正在安装，稍后再移除')
+  rmSync(join(settings.backendDir, 'modules', id), { recursive: true, force: true })
+  moduleStates.delete(id)
+  return { ok: true, message: '组件已移除；重启便携后端后完全生效' }
+}
+
+async function handleModules(req, res, settings) {
+  const url = new URL(req.url, 'http://127.0.0.1')
+  const action = url.pathname.slice(`${ROUTE_PREFIX}/modules`.length).replace(/^\/+/, '')
+  try {
+    if (req.method === 'GET' && action === 'status') {
+      sendJSON(res, 200, moduleStatus(settings))
+      return
+    }
+    if (req.method === 'POST' && action === 'install') {
+      sendJSON(res, 200, beginModuleInstall(settings, url.searchParams.get('id') || 'local-llm'))
+      return
+    }
+    if (req.method === 'POST' && action === 'remove') {
+      sendJSON(res, 200, removeModule(settings, url.searchParams.get('id') || 'local-llm'))
+      return
+    }
+    sendJSON(res, 404, { ok: false, message: 'not found' })
+  } catch (error) {
+    sendJSON(res, 500, { ok: false, message: String(error?.message || error) })
+  }
+}
+
 async function startBackendRuntime(settings) {
   const status = await backendRuntimeStatus(settings)
   if (!status.installed) throw new Error('后端尚未安装，请先安装')
@@ -1014,7 +1176,7 @@ async function startBackendRuntime(settings) {
     cwd: status.consoleDir,
     env: {
       ...process.env,
-      PYTHONPATH: status.consoleDir,
+      PYTHONPATH: [status.consoleDir, ...installedModuleSitePaths(settings)].join(delimiter),
       ONMYOJI_DATA_DIR: dataDir,
       PORT: String(settings.port),
       ADB_PATH: existsSync(adb) ? adb : process.env.ADB_PATH,
@@ -1166,6 +1328,11 @@ export function apply(ctx, config) {
         kind: 'prefix',
         path: `${ROUTE_PREFIX}/backend-runtime`,
         handler: (req, res) => handleBackendRuntime(req, res, settings),
+      }),
+      ctx.webServer.register({
+        kind: 'prefix',
+        path: `${ROUTE_PREFIX}/modules`,
+        handler: (req, res) => handleModules(req, res, settings),
       }),
       ctx.webServer.register({
         kind: 'prefix',

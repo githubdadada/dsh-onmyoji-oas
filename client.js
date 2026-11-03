@@ -21,6 +21,7 @@ window.__ModuleLoader__.load({
     const BASELINE = '/onmyoji/baseline'
     const OAS_RUNTIME = '/onmyoji/oas-runtime'
     const BACKEND_RUNTIME = '/onmyoji/backend-runtime'
+    const MODULES = '/onmyoji/modules'
     const CONSOLE_URL = 'http://127.0.0.1:8787'
     const OAS_DOCS = 'https://runhey.github.io/OnmyojiAutoScript-website/docs/user-manual/installation/'
     const OAS_REPO = 'https://github.com/runhey/OnmyojiAutoScript'
@@ -303,6 +304,25 @@ window.__ModuleLoader__.load({
       ['diag.backendOasReady', '已包含', 'Included'],
       ['diag.backendOasMissing', '缺失', 'Missing'],
       ['diag.backendUpdateHint', 'OAS 更新用下方「OAS 运行时」；升级后端包重新安装即可。', 'Update OAS with the runtime card below; reinstall the bundle to upgrade the backend.'],
+      ['diag.modules', '可选组件', 'Optional components'],
+      ['diag.modulesDesc', '核心已包含 OAS 日常功能；需要本地 LLM 时再装这个运行时，不装不影响任务。', 'The core already runs OAS. Install this runtime only if you need the local LLM.'],
+      ['diag.moduleLocalLlm', '本地 LLM 运行时', 'Local LLM runtime'],
+      ['diag.moduleInstalled', '已安装', 'Installed'],
+      ['diag.moduleNotInstalled', '未安装', 'Not installed'],
+      ['diag.moduleInstall', '安装组件', 'Install module'],
+      ['diag.moduleInstalling', '组件安装中…', 'Installing module…'],
+      ['diag.moduleRemove', '移除组件', 'Remove module'],
+      ['diag.moduleRemoveConfirm', '移除 {name}？重启便携后端后生效；模型文件不会被删除。', 'Remove {name}? Restart the portable backend to apply. Model files are not deleted.'],
+      ['diag.moduleInstallConfirm', '将下载 {name}（约 {size}），继续？', 'Download {name} (about {size})?'],
+      ['diag.moduleRestartHint', '安装/移除后，重启便携后端才会生效。', 'Restart the portable backend after installing or removing a module.'],
+      ['diag.moduleModelHint', '模型文件不包含在组件内：可放到 {path}，或使用 Ollama。', 'Model files are not included: place them in {path}, or use Ollama.'],
+      ['diag.moduleUnsupported', '当前平台暂不支持该组件', 'This module is not available on this platform'],
+      ['diag.moduleSize', '组件大小', 'Module size'],
+      ['diag.moduleRequiresCore', '需要核心版本', 'Requires core'],
+      ['diag.moduleError', '组件安装失败', 'Module install failed'],
+      ['diag.moduleRestart', '重启便携后端', 'Restart portable backend'],
+      ['diag.moduleRestarting', '重启中…', 'Restarting…'],
+      ['diag.moduleCoreMissing', '便携后端尚未安装；组件可先下载，启动时加载。', 'The portable backend is not installed; the module can be downloaded and is loaded on start.'],
       ['overview.installBackend', '一键安装后端', 'Install backend'],
       ['overview.installBackendHint', '首次约 700MB，自动装好 Python、控制台和 OAS', 'About 700MB on first run; installs Python, console, and OAS'],
       ['overview.startBackendRuntime', '启动后端', 'Start backend'],
@@ -352,6 +372,13 @@ window.__ModuleLoader__.load({
 
     function sleep(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms))
+    }
+
+    function fmtBytes(value) {
+      const size = Number(value) || 0
+      if (!size) return '—'
+      const mb = size / 1024 / 1024
+      return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`
     }
 
     function tf(t, key, vars) {
@@ -467,7 +494,7 @@ window.__ModuleLoader__.load({
         health: null, catalog: [], devices: [], running: {}, schedules: [],
         recent: [], oneclick: EMPTY_ONE_CLICK, scheduler: null, oas: null,
         autostart: null, status: null, backend: null, baseline: null, oasRuntime: null,
-        backendRuntime: null, device: '',
+        backendRuntime: null, modules: null, device: '',
       }))
       const [loading, setLoading] = useState(true)
       const [offline, setOffline] = useState(false)
@@ -514,12 +541,14 @@ window.__ModuleLoader__.load({
         const baseline = await requestJSON(BASELINE + '/status').catch(() => null)
         const oasRuntime = await requestJSON(OAS_RUNTIME + '/status').catch(() => null)
         const backendRuntime = await requestJSON(BACKEND_RUNTIME + '/status').catch(() => null)
+        const modules = await requestJSON(MODULES + '/status').catch(() => null)
         if (!mounted.current) return
         const patch = {}
         if (backend) patch.backend = backend
         if (baseline) patch.baseline = baseline
         if (oasRuntime) patch.oasRuntime = oasRuntime
         if (backendRuntime) patch.backendRuntime = backendRuntime
+        if (modules) patch.modules = modules
         let firstError = ''
         results.forEach((result, index) => {
           const key = defs[index][0]
@@ -914,6 +943,52 @@ window.__ModuleLoader__.load({
         return true
       }), [loadAll, notify, runAction])
 
+      const restartBackendRuntime = useCallback(() => runAction('backend-runtime:restart', async () => {
+        const stopped = await requestJSON(BACKEND_RUNTIME + '/stop', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (stopped.ok === false) throw new Error(stopped.message || tRef.current('toast.failed'))
+        const started = await requestJSON(BACKEND_RUNTIME + '/start', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (started.ok === false) throw new Error(started.message || tRef.current('toast.failed'))
+        notify(started.message || tRef.current('toast.backendStarted'))
+        await loadAll()
+        return true
+      }), [loadAll, notify, runAction])
+
+      const installModule = useCallback((id) => runAction('module:install', async () => {
+        const started = await requestJSON(MODULES + '/install?id=' + enc(id), { method: 'POST' })
+        if (started.ok === false) throw new Error(started.message || tRef.current('toast.failed'))
+        const deadline = Date.now() + 15 * 60 * 1000
+        let mod = null
+        while (Date.now() < deadline) {
+          await sleep(1500)
+          const status = await requestJSON(MODULES + '/status')
+          if (!mounted.current) return false
+          setData((prev) => Object.assign({}, prev, { modules: status }))
+          mod = (status.modules || []).find((item) => item.id === id)
+          if (mod && mod.error) throw new Error(mod.error)
+          if (mod && mod.installed) break
+        }
+        if (!mod || !mod.installed) throw new Error('组件安装超时')
+        notify(tRef.current('diag.moduleInstalled') + ' · ' + tRef.current('diag.moduleRestartHint'))
+        await loadAll()
+        return true
+      }), [loadAll, notify, runAction])
+
+      const removeModule = useCallback((id) => runAction('module:remove', async () => {
+        const result = await requestJSON(MODULES + '/remove?id=' + enc(id), { method: 'POST' })
+        if (result.ok === false) throw new Error(result.message || tRef.current('toast.failed'))
+        notify(result.message || tRef.current('diag.moduleNotInstalled'))
+        await loadAll()
+        return true
+      }), [loadAll, notify, runAction])
+
       const refreshScreenshot = useCallback(async (serial) => {
         if (!serial) {
           notify(tRef.current('rail.needDevice'), 'fail')
@@ -941,7 +1016,8 @@ window.__ModuleLoader__.load({
         createSchedule, toggleSchedule, runSchedule, deleteSchedule,
         tickNow, warmAll, exportDiagnose, checkOasUpdate, previewOasUpdate, applyOasUpdate, rollbackOas,
         createBaseline, restoreBaseline, installOasRuntime, checkOasRuntime, updateOasRuntime,
-        installBackendRuntime, startBackendRuntime, stopBackendRuntime,
+        installBackendRuntime, startBackendRuntime, stopBackendRuntime, restartBackendRuntime,
+        installModule, removeModule,
         refreshScreenshot,
       }
     }
@@ -1658,6 +1734,8 @@ window.__ModuleLoader__.load({
       const portableCanInstall = portable.canInstall === true
       const portableInstalling = portable.installing === true
       const portableError = portable.installError || ''
+      const modulesState = c.data.modules || {}
+      const modules = modulesState.modules || []
       const autostart = (c.data.autostart && c.data.autostart.config) || {}
       return [
         h('div', { key: 'head' },
@@ -1865,6 +1943,79 @@ window.__ModuleLoader__.load({
               )
             : null,
           h('div', { className: 'onm-row-sub', style: { marginTop: '8px' } }, t('diag.backendUpdateHint')),
+        ),
+        h('section', { key: 'modules', className: 'onm-card' },
+          h('div', { className: 'onm-card-head' },
+            h('div', null,
+              h('h2', { className: 'onm-card-title' }, t('diag.modules')),
+              h('p', { className: 'onm-card-desc' }, t('diag.modulesDesc')),
+            ),
+          ),
+          modules.length === 0
+            ? h('div', { className: 'onm-hint' }, t('diag.moduleUnsupported'))
+            : modules.map((def) => {
+              const installing = def.installing === true
+              return h('div', { key: def.id, className: 'onm-module' },
+                h('div', { className: 'onm-module-head' },
+                  h('div', null,
+                    h('h3', null, def.name),
+                    h('p', { className: 'onm-card-desc' }, def.description),
+                  ),
+                  h(Badge, {
+                    tone: def.installed ? 'ok' : def.error ? 'bad' : installing ? 'warn' : '',
+                  }, def.installed
+                    ? t('diag.moduleInstalled')
+                    : installing
+                      ? t('diag.moduleInstalling')
+                      : t('diag.moduleNotInstalled')),
+                ),
+                h('div', { className: 'onm-hstack', style: { marginTop: '8px' } },
+                  h('span', { className: 'onm-row-sub' }, `${t('diag.moduleSize')} ${fmtBytes(def.size)}`),
+                  h('span', { className: 'onm-row-sub' }, `${t('diag.moduleRequiresCore')} ${def.requiresCore}`),
+                  !def.supported ? h('span', { className: 'onm-row-sub' }, t('diag.moduleUnsupported')) : null,
+                ),
+                def.error
+                  ? h('div', { className: 'onm-notice fail', style: { marginTop: '8px' } }, def.error)
+                  : null,
+                h('div', { className: 'onm-hstack', style: { marginTop: '8px' } },
+                  (!def.installed && def.canInstall)
+                    ? h('button', {
+                        type: 'button', className: 'onm-btn primary small',
+                        onClick: () => {
+                          if (typeof window === 'undefined' || window.confirm(tf(t, 'diag.moduleInstallConfirm', { name: def.name, size: fmtBytes(def.size) }))) {
+                            c.installModule(def.id)
+                          }
+                        },
+                        disabled: c.busy === 'module:install' || installing,
+                      }, (c.busy === 'module:install' || installing) ? t('diag.moduleInstalling') : t('diag.moduleInstall'))
+                    : null,
+                  def.installed
+                    ? h('button', {
+                        type: 'button', className: 'onm-btn danger small',
+                        onClick: () => {
+                          if (typeof window === 'undefined' || window.confirm(tf(t, 'diag.moduleRemoveConfirm', { name: def.name }))) {
+                            c.removeModule(def.id)
+                          }
+                        },
+                        disabled: c.busy === 'module:remove',
+                      }, c.busy === 'module:remove' ? t('diag.moduleInstalling') : t('diag.moduleRemove'))
+                    : null,
+                  (portableInstalled || portableRunning)
+                    ? h('button', {
+                        type: 'button', className: 'onm-btn ghost small',
+                        onClick: c.restartBackendRuntime,
+                        disabled: c.busy === 'backend-runtime:restart' || c.busy === 'backend-runtime:start',
+                      }, (c.busy === 'backend-runtime:restart' || c.busy === 'backend-runtime:start')
+                        ? t('diag.moduleRestarting')
+                        : t('diag.moduleRestart'))
+                    : null,
+                ),
+                (def.installed && def.model)
+                  ? h('div', { className: 'onm-row-sub', style: { marginTop: '6px' } }, tf(t, 'diag.moduleModelHint', { path: def.model.path }))
+                  : null,
+              )
+            }),
+          h('div', { className: 'onm-row-sub', style: { marginTop: '8px' } }, t('diag.moduleRestartHint')),
         ),
         h('section', { key: 'baseline', className: 'onm-card' },
           h('div', { className: 'onm-card-head' },
@@ -2246,6 +2397,10 @@ window.__ModuleLoader__.load({
 .onm-kv dd{margin:0;overflow-wrap:anywhere}
 .onm-empty{color:var(--dsw-alias-label-secondary);font-size:12px;padding:16px;text-align:center}
 .onm-details{padding:14px 18px}
+.onm-module{padding:14px 0;border-top:1px solid var(--dsw-alias-border-l1)}
+.onm-module:first-of-type{border-top:none;padding-top:4px}
+.onm-module-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.onm-module h3{margin:0 0 4px;font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .onm-code{margin:8px 0 0;padding:10px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto}
 .onm-details summary{cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:11.5px}
 .onm-details[open] summary{color:var(--dsw-alias-label-primary)}
