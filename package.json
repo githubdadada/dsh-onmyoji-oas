@@ -1,0 +1,32 @@
+{
+  "name": "@local/dsh-onmyoji-console",
+  "version": "1.4.0",
+  "description": "阴阳师 OAS 的 DSH 左侧入口插件：通过可配置的控制台地址读取任务、设备、计划、OAS 版本与上游更新，不依赖本机目录。",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node --check index.js && node --check client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

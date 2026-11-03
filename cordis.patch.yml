@@ -1,0 +1,6 @@
+# 平安京管家 · 左侧入口插件。
+# Host 半侧注册 /onmyoji/api 同源代理与 /onmyoji/backend 服务控制路由；
+# Client 半侧注册 sidebar.panellist 图标与 main 面板。
+- insert:
+    - id: onmyoji-console
+      name: '@local/dsh-onmyoji-console'
