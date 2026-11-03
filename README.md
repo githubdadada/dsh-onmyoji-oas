@@ -166,6 +166,15 @@ https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console
 `consoleBundleUrl` 覆盖。Windows 包按同一布局构建（Windows Python runtime +
 console + OAS + `platform-tools/adb.exe`）。
 
+国内镜像（腾讯云，实测约 374KB/s，比 GitHub 快约 10 倍）：
+
+```text
+http://124.221.0.251/oas/console-backend-darwin-arm64.tar.gz
+SHA256: 28d16d07868869481b2889daa8168dc1a5f81c70992f599a8ded13ba879f45a2
+```
+
+把它填到 `consoleBundleUrl` 即可。该地址是个人镜像，GitHub Release 作为长期备用源。
+
 ### 源码模式（自用）
 
 如果你已有控制台源码，不需要下载后端包：
