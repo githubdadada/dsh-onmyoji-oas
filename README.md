@@ -142,18 +142,21 @@ git -C /Users/psd/Documents/mimo-onmyoji-OAS/data/oas_mirror.git \
 - 包内布局：`runtime/`、`console/`、`platform-tools/`、`run.sh`、`manifest.json`。
   Windows 包用 `runtime/python.exe`，同样布局。
 
-当前已构建 macOS 包（736MB）：
+当前已构建 macOS 精简包（**534MB，已移除本地 LLM**：无 torch/transformers，控制台自动回退本地规则引擎）：
 
 ```bash
 dist/console-backend-darwin-arm64.tar.gz
 ```
 
+> v1.4.0 是全量包（含本地 LLM，736MB）；v1.5.0 起默认包不再包含本地 LLM。
+> 需要本地 LLM 的用户可以使用 v1.4.0 的全量资产。
+
 把它作为 GitHub Release 资产上传到默认仓库：
 
 ```bash
-gh release create v1.4.0 dist/console-backend-darwin-arm64.tar.gz \
+gh release create v1.5.0 dist/console-backend-darwin-arm64.tar.gz \
   --repo githubdadada/onmyoji-backend \
-  --title "console backend v1.4.0"
+  --title "console backend v1.5.0 (no local LLM)"
 ```
 
 默认下载地址是：
@@ -166,11 +169,11 @@ https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console
 `consoleBundleUrl` 覆盖。Windows 包按同一布局构建（Windows Python runtime +
 console + OAS + `platform-tools/adb.exe`）。
 
-国内镜像（腾讯云，实测约 374KB/s，比 GitHub 快约 10 倍）：
+国内镜像（腾讯云，实测约 374KB/s，比 GitHub 快约 10 倍；精简包 534MB）：
 
 ```text
 http://124.221.0.251/oas/console-backend-darwin-arm64.tar.gz
-SHA256: 28d16d07868869481b2889daa8168dc1a5f81c70992f599a8ded13ba879f45a2
+SHA256: db5a33ca70e05ccbe7eb1336514a65b6f48d083fd3c45d130f437bab738c1587
 ```
 
 把它填到 `consoleBundleUrl` 即可。该地址是个人镜像，GitHub Release 作为长期备用源。
