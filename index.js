@@ -60,6 +60,7 @@ const DEFAULT_OAS_MIRROR = 'https://github.com/githubdadada/OnmyojiAutoScript.gi
 const DEFAULT_BACKEND_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'backend')
 const DEFAULT_CONSOLE_BUNDLE = 'https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz'
 const DEFAULT_BASELINE_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'baselines')
+const installStates = new Map()
 const NO_ROOT_MESSAGE = `未找到 OAS 控制台目录（需要 start.sh 与 web/server.py）。请先启动控制台，或在 ${CONFIG_PATH} 中配置 root。`
 
 function readConfigFile() {
@@ -751,7 +752,37 @@ function tailFile(file, limit = 8000) {
   }
 }
 
-async function downloadToFile(source, dest, timeoutMs = 900000) {
+function downloadHttp(url, dest, redirects = 0, timeoutMs = 1800000) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    if (redirects > 6) {
+      rejectPromise(new Error('下载重定向过多'))
+      return
+    }
+    const parsed = new URL(url)
+    const requester = parsed.protocol === 'https:' ? httpsGet : httpGet
+    const req = requester(url, {
+      headers: { 'user-agent': 'dsh-onmyoji-oas/1.4' },
+    }, (res) => {
+      const status = res.statusCode || 0
+      if ([301, 302, 303, 307, 308].includes(status) && res.headers.location) {
+        res.resume()
+        const next = new URL(res.headers.location, url).href
+        downloadHttp(next, dest, redirects + 1, timeoutMs).then(resolvePromise, rejectPromise)
+        return
+      }
+      if (status !== 200) {
+        res.resume()
+        rejectPromise(new Error(`下载失败 HTTP ${status}`))
+        return
+      }
+      pipeline(res, createWriteStream(dest)).then(() => resolvePromise(dest), rejectPromise)
+    })
+    req.setTimeout(timeoutMs, () => req.destroy(new Error('下载超时')))
+    req.on('error', rejectPromise)
+  })
+}
+
+async function downloadToFile(source, dest, timeoutMs = 1800000) {
   mkdirSync(dirname(dest), { recursive: true })
   if (String(source).startsWith('file://')) {
     copyFileSync(fileURLToPath(source), dest)
@@ -765,12 +796,7 @@ async function downloadToFile(source, dest, timeoutMs = 900000) {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error('仅支持 http(s) 或 file:// 地址')
   }
-  if (typeof fetch !== 'function') throw new Error('当前 Node 不支持 fetch，无法下载')
-  const response = await fetch(source, { redirect: 'follow', signal: AbortSignal.timeout(timeoutMs) })
-  if (!response.ok) throw new Error(`下载失败 HTTP ${response.status} ${response.statusText}`)
-  if (!response.body) throw new Error('下载响应为空')
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(dest))
-  return dest
+  return downloadHttp(source, dest, 0, timeoutMs)
 }
 
 async function extractArchive(archive, dest) {
@@ -882,6 +908,7 @@ async function backendRuntimeStatus(settings) {
   const installed = existsSync(join(consoleDir, 'web', 'server.py')) && existsSync(runtimePython)
   const oasInstalled = existsSync(join(consoleDir, 'OAS', '.git'))
   const health = installed ? await probeHealth(settings) : { ok: false }
+  const state = installStates.get(settings.backendDir)
   let manifest
   try {
     manifest = JSON.parse(readFileSync(join(settings.backendDir, 'manifest.json'), 'utf8'))
@@ -896,19 +923,21 @@ async function backendRuntimeStatus(settings) {
     installed,
     oasInstalled,
     running: health.ok,
+    installing: Boolean(state && state.running),
+    installError: state ? (state.error || '') : '',
     platform: `${process.platform}-${process.arch}`,
     consoleBundleUrl: settings.consoleBundleUrl,
     oasMirrorUrl: settings.oasMirrorUrl,
-    canInstall: !installed && Boolean(settings.consoleBundleUrl),
+    canInstall: !installed && !(state && state.running) && Boolean(settings.consoleBundleUrl),
     manifest,
     log: tailFile(join(settings.backendDir, 'install.log'), 8000),
     message: installed
       ? (health.ok ? '后端已安装并运行' : '后端已安装，未运行')
-      : '后端尚未安装',
+      : (state && state.running ? '后端安装中' : '后端尚未安装'),
   }
 }
 
-async function installBackendRuntime(settings) {
+async function installBackendRuntimeAsync(settings) {
   if (!settings.consoleBundleUrl) throw new Error('未配置 consoleBundleUrl')
   mkdirSync(settings.backendDir, { recursive: true })
   const logFile = join(settings.backendDir, 'install.log')
@@ -947,6 +976,27 @@ async function installBackendRuntime(settings) {
     ok: true,
     message: '后端安装完成，可以点击启动',
   }
+}
+
+function beginBackendInstall(settings) {
+  const key = settings.backendDir
+  const existing = installStates.get(key)
+  if (existing && existing.running) {
+    return { ok: true, installing: true, message: '后端安装正在进行' }
+  }
+  const state = { running: true, error: '', started_at: Date.now() }
+  installStates.set(key, state)
+  installBackendRuntimeAsync(settings)
+    .then(() => {
+      state.running = false
+      state.error = ''
+    })
+    .catch((error) => {
+      state.running = false
+      state.error = String(error?.message || error)
+      logRuntime(settings.backendDir, `install failed: ${state.error}`)
+    })
+  return { ok: true, installing: true, message: '开始安装后端' }
 }
 
 async function startBackendRuntime(settings) {
@@ -1042,7 +1092,7 @@ async function handleBackendRuntime(req, res, settings) {
   }
   try {
     if (action === 'install') {
-      sendJSON(res, 200, await installBackendRuntime(settings))
+      sendJSON(res, 200, beginBackendInstall(settings))
       return
     }
     if (action === 'start') {

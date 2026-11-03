@@ -283,6 +283,7 @@ window.__ModuleLoader__.load({
       ['diag.backendRuntimeDesc', '一键安装 Python + 控制台 + OAS；不需要 .app，也不需要手动装 Python', 'Install Python, console, and OAS in one click; no .app and no manual Python setup'],
       ['diag.backendInstall', '一键安装后端', 'Install backend'],
       ['diag.backendInstalling', '安装中…（首次可能较久）', 'Installing… (the first run can take a while)'],
+      ['diag.backendInstallingShort', '安装中…', 'Installing…'],
       ['diag.backendInstalled', '后端已安装', 'Backend installed'],
       ['diag.backendStart', '启动后端', 'Start backend'],
       ['diag.backendStarting', '启动中…', 'Starting…'],
@@ -347,6 +348,10 @@ window.__ModuleLoader__.load({
 
     function enc(value) {
       return encodeURIComponent(String(value ?? ''))
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms))
     }
 
     function tf(t, key, vars) {
@@ -857,20 +862,30 @@ window.__ModuleLoader__.load({
       }), [loadAll, notify, runAction])
 
       const installBackendRuntime = useCallback(() => runAction('backend-runtime:install', async () => {
-        const installed = await requestJSON(BACKEND_RUNTIME + '/install', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        if (installed.ok === false) throw new Error(installed.message || tRef.current('toast.failed'))
-        notify(installed.message || tRef.current('diag.backendInstalled'))
-        const started = await requestJSON(BACKEND_RUNTIME + '/start', {
+        const started = await requestJSON(BACKEND_RUNTIME + '/install', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({}),
         })
         if (started.ok === false) throw new Error(started.message || tRef.current('toast.failed'))
-        notify(started.message || tRef.current('toast.backendStarted'))
+        const deadline = Date.now() + 30 * 60 * 1000
+        let status = null
+        while (Date.now() < deadline) {
+          await sleep(2000)
+          status = await requestJSON(BACKEND_RUNTIME + '/status')
+          if (!mounted.current) return false
+          setData((prev) => Object.assign({}, prev, { backendRuntime: status }))
+          if (status.installError) throw new Error(status.installError)
+          if (status.installed) break
+        }
+        if (!status || !status.installed) throw new Error('后端安装超时，请查看安装日志')
+        const startedBackend = await requestJSON(BACKEND_RUNTIME + '/start', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (startedBackend.ok === false) throw new Error(startedBackend.message || tRef.current('toast.failed'))
+        notify(startedBackend.message || tRef.current('toast.backendStarted'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
@@ -1036,6 +1051,7 @@ window.__ModuleLoader__.load({
       const runtimeInstalled = runtime.installed === true
       const runtimeRunning = runtime.running === true
       const runtimeCanInstall = runtime.canInstall === true
+      const runtimeInstalling = runtime.installing === true
       const device = currentDevice(data)
       const online = !!(device && device.online)
       const run = device ? data.running[device.serial] : null
@@ -1056,7 +1072,7 @@ window.__ModuleLoader__.load({
         if (runtimeInstalled) {
           heroTitle = t('overview.heroRuntimeTitle')
           heroBody = t('overview.heroRuntimeBody')
-        } else if (runtimeCanInstall) {
+        } else if (runtimeCanInstall || runtimeInstalling) {
           heroTitle = t('overview.heroInstallTitle')
           heroBody = t('overview.heroInstallBody')
         } else {
@@ -1079,7 +1095,7 @@ window.__ModuleLoader__.load({
             onClick: c.startBackendRuntime,
             disabled: c.busy === 'backend-runtime:start',
           }, c.busy === 'backend-runtime:start' ? t('diag.backendStarting') : t('overview.startBackendRuntime')))
-        } else if (runtimeCanInstall) {
+        } else if (runtimeCanInstall || runtimeInstalling || c.busy === 'backend-runtime:install') {
           heroActions.push(h('button', {
             key: 'install-runtime', type: 'button', className: 'onm-btn primary',
             onClick: () => {
@@ -1087,8 +1103,8 @@ window.__ModuleLoader__.load({
                 c.installBackendRuntime()
               }
             },
-            disabled: c.busy === 'backend-runtime:install',
-          }, c.busy === 'backend-runtime:install' ? t('diag.backendInstalling') : t('overview.installBackend')))
+            disabled: c.busy === 'backend-runtime:install' || runtimeInstalling,
+          }, (c.busy === 'backend-runtime:install' || runtimeInstalling) ? t('diag.backendInstalling') : t('overview.installBackend')))
         } else if (canStart) {
           heroActions.push(h('button', {
             key: 'start', type: 'button', className: 'onm-btn primary',
@@ -1121,7 +1137,7 @@ window.__ModuleLoader__.load({
                   h('span', { key: 'dir-label' }, t('diag.backendDir')),
                   h('code', { key: 'dir' }, runtime.backendDir || '—'),
                 ]
-              : runtimeCanInstall
+              : (runtimeCanInstall || runtimeInstalling)
                 ? [
                     h('span', { key: 'install-hint' }, t('overview.installBackendHint')),
                     h('code', { key: 'install-dir' }, runtime.backendDir || '—'),
@@ -1640,6 +1656,8 @@ window.__ModuleLoader__.load({
       const portableInstalled = portable.installed === true
       const portableRunning = portable.running === true
       const portableCanInstall = portable.canInstall === true
+      const portableInstalling = portable.installing === true
+      const portableError = portable.installError || ''
       const autostart = (c.data.autostart && c.data.autostart.config) || {}
       return [
         h('div', { key: 'head' },
@@ -1787,12 +1805,14 @@ window.__ModuleLoader__.load({
               h('p', { className: 'onm-card-desc' }, t('diag.backendRuntimeDesc')),
             ),
             h(Badge, {
-              tone: portableRunning ? 'ok' : portableInstalled ? 'warn' : '',
+              tone: portableRunning ? 'ok' : portableError ? 'bad' : (portableInstalled || portableInstalling) ? 'warn' : '',
             }, portableRunning
               ? t('diag.backendRunning')
-              : portableInstalled
-                ? t('diag.backendStopped')
-                : t('diag.backendNotInstalled')),
+              : portableInstalling
+                ? t('diag.backendInstallingShort')
+                : portableInstalled
+                  ? t('diag.backendStopped')
+                  : t('diag.backendNotInstalled')),
           ),
           h('dl', { className: 'onm-kv' },
             h('dt', null, t('diag.backendPlatform')),
@@ -1807,8 +1827,11 @@ window.__ModuleLoader__.load({
           !portable.consoleBundleUrl
             ? h('div', { className: 'onm-notice fail', style: { marginTop: '12px' } }, t('diag.backendNoBundle'))
             : null,
+          portableError
+            ? h('div', { className: 'onm-notice fail', style: { marginTop: '12px' } }, portableError)
+            : null,
           h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
-            (!portableInstalled && portableCanInstall)
+            (!portableInstalled && (portableCanInstall || portableInstalling || c.busy === 'backend-runtime:install'))
               ? h('button', {
                   type: 'button', className: 'onm-btn primary small',
                   onClick: () => {
@@ -1816,8 +1839,8 @@ window.__ModuleLoader__.load({
                       c.installBackendRuntime()
                     }
                   },
-                  disabled: c.busy === 'backend-runtime:install',
-                }, c.busy === 'backend-runtime:install' ? t('diag.backendInstalling') : t('diag.backendInstall'))
+                  disabled: c.busy === 'backend-runtime:install' || portableInstalling,
+                }, (c.busy === 'backend-runtime:install' || portableInstalling) ? t('diag.backendInstalling') : t('diag.backendInstall'))
               : null,
             (portableInstalled && !portableRunning)
               ? h('button', {

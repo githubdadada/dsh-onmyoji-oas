@@ -45,7 +45,7 @@ plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#main"
 
 ```text
 plugin_manager remove_bundle target="@local/dsh-onmyoji-console"
-plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.0"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.1"
 ```
 
 若结果返回 `restart-required`（替换已运行的包且未启用 HMR），重启 DSH 后生效。
@@ -226,8 +226,8 @@ gh repo create dsh-onmyoji-oas --public --source=. --remote=origin --push
 发版本：
 
 ```bash
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.4.1
+git push origin v1.4.1
 ```
 
 然后即可用 `#v1.1.0` 安装。
