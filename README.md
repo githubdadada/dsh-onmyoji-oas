@@ -19,13 +19,13 @@
 先把本目录作为独立仓库推到 GitHub（见下方「发布到 GitHub」），然后：
 
 ```text
-plugin_manager install_bundle target="github:OWNER/dsh-onmyoji-oas#main"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#main"
 ```
 
 或使用完整 URL：
 
 ```text
-plugin_manager install_bundle target="https://github.com/OWNER/dsh-onmyoji-oas.git"
+plugin_manager install_bundle target="https://github.com/githubdadada/dsh-onmyoji-oas.git"
 ```
 
 安装后刷新 DSH 页面，左侧栏出现「阴阳师 OAS」入口。
@@ -38,14 +38,14 @@ DSH 的 `plugin_manager` 没有单独的 update 动作；更新 = 移除旧包 +
 
 ```text
 plugin_manager remove_bundle target="@local/dsh-onmyoji-console"
-plugin_manager install_bundle target="github:OWNER/dsh-onmyoji-oas#main"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#main"
 ```
 
 建议用 tag 固定版本，升级时换 tag：
 
 ```text
 plugin_manager remove_bundle target="@local/dsh-onmyoji-console"
-plugin_manager install_bundle target="github:OWNER/dsh-onmyoji-oas#v1.2.0"
+plugin_manager install_bundle target="github:githubdadada/dsh-onmyoji-oas#v1.4.0"
 ```
 
 若结果返回 `restart-required`（替换已运行的包且未启用 HMR），重启 DSH 后生效。
@@ -64,11 +64,11 @@ plugin_manager install_bundle target="github:OWNER/dsh-onmyoji-oas#v1.2.0"
   "consoleUrl": "http://127.0.0.1:8787",
   "root": "/absolute/path/to/OAS-console",
   "oasRoot": "/absolute/path/to/OAS-console/OAS",
-  "oasMirrorUrl": "https://github.com/OWNER/OnmyojiAutoScript.git",
+  "oasMirrorUrl": "https://github.com/githubdadada/OnmyojiAutoScript.git",
   "oasBranch": "dev",
   "baselineDir": "/Users/you/.dsh/onmyoji-oas/baselines",
   "backendDir": "/Users/you/.dsh/onmyoji-oas/backend",
-  "consoleBundleUrl": "https://github.com/OWNER/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz"
+  "consoleBundleUrl": "https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz"
 }
 ```
 
@@ -101,12 +101,12 @@ plugin_manager install_bundle target="github:OWNER/dsh-onmyoji-oas#v1.2.0"
 
 ## 建立你的 GitHub OAS 镜像
 
-先在 GitHub 建一个空仓库（例如 `OWNER/OnmyojiAutoScript`），然后用本地完整镜像推送：
+先在 GitHub 建一个空仓库（例如 `githubdadada/OnmyojiAutoScript`），然后用本地完整镜像推送：
 
 ```bash
 cd /Users/psd/Documents/mimo-onmyoji-OAS/data/oas_mirror.git
 
-git remote add github git@github.com:OWNER/OnmyojiAutoScript.git
+git remote add github git@github.com:githubdadada/OnmyojiAutoScript.git
 git push github 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
 ```
 
@@ -213,7 +213,7 @@ git commit -m "feat: standalone DSH Onmyoji OAS console plugin"
 git branch -M main
 
 # 在 GitHub 上新建一个空仓库（不要勾选 README），然后：
-git remote add origin git@github.com:OWNER/dsh-onmyoji-oas.git
+git remote add origin git@github.com:githubdadada/dsh-onmyoji-oas.git
 git push -u origin main
 ```
 
