@@ -1,11 +1,12 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, symlinkSync, existsSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { gzipSync } from 'node:zlib'
 import { createServer, request } from 'node:http'
 
 const root = mkdtempSync(join(tmpdir(), 'onmyoji-host-test-'))
@@ -166,4 +167,78 @@ test('module install commits only with a completion marker and checks core versi
   mkdirSync(old.backendDir, {recursive:true})
   writeFileSync(join(old.backendDir,'installed.json'), JSON.stringify({version:'1.0.0'}, null, 2))
   await assert.rejects(host.installModuleAsync(old, def), /需要核心/)
+})
+
+// Tiny handcrafted archives exercise metadata that a filename-only listing misses.
+function tarFixture(name, entries) {
+  const blocks=[]
+  for(const {path, type='0', link='', data=''} of entries) {
+    const body=Buffer.from(data), header=Buffer.alloc(512)
+    const put=(offset,length,text)=>header.write(text,offset,length,'utf8')
+    put(0,100,path); put(100,8,'0000755\0'); put(108,8,'0000000\0'); put(116,8,'0000000\0')
+    put(124,12,body.length.toString(8).padStart(11,'0')+'\0'); put(136,12,'00000000000\0')
+    header.fill(32,148,156); put(156,1,type); put(157,100,link); put(257,6,'ustar\0'); put(263,2,'00')
+    put(148,8,[...header].reduce((a,b)=>a+b,0).toString(8).padStart(6,'0')+'\0 ')
+    blocks.push(header,body,Buffer.alloc((512-body.length%512)%512))
+  }
+  blocks.push(Buffer.alloc(1024))
+  const archive=join(root,name+'.tar.gz')
+  writeFileSync(archive,gzipSync(Buffer.concat(blocks)))
+  return archive
+}
+function paxField(key,value) {
+  const record=` ${key}=${value}\n`; let size=record.length+1
+  while(String(size).length+record.length!==size) size=String(size).length+record.length
+  return String(size)+record
+}
+
+test('tar preserves package-local runtime symlinks, hardlinks and PAX paths', async()=>{
+  const archive=tarFixture('safe-links',[
+    {path:'lib/python',data:'runtime'},
+    {path:'bin/python',type:'2',link:'../lib/python'},
+    {path:'lib/copy',type:'1',link:'lib/python'},
+    {path:'pax',type:'x',data:paxField('path','lib/long-name')},
+    {path:'placeholder',data:'pax content'},
+  ])
+  const dest=join(root,'safe-links-output')
+  await host.extractArchive(archive,dest)
+  assert.equal(readFileSync(join(dest,'bin/python'),'utf8'),'runtime')
+  assert.equal(readFileSync(join(dest,'lib/copy'),'utf8'),'runtime')
+  assert.equal(readFileSync(join(dest,'lib/long-name'),'utf8'),'pax content')
+})
+
+for(const [name,entries] of [
+  ['parent',[{path:'../escaped',data:'bad'}]],
+  ['absolute',[{path:'/escaped',data:'bad'}]],
+  ['windows-drive',[{path:'C:/escaped',data:'bad'}]],
+  ['windows-alias',[{path:'.git./config',data:'bad'}]],
+  ['windows-device',[{path:'NUL:stream',data:'bad'}]],
+  ['gnu-long-path',[{path:'long',type:'L',data:'../escaped\0'},{path:'safe',data:'bad'}]],
+  ['pax-global',[{path:'pax',type:'g',data:paxField('path','../escaped')},{path:'safe',data:'bad'}]],
+  ['special-file',[{path:'device',type:'3'}]],
+  ['symlink-outside',[{path:'link',type:'2',link:'../outside'}]],
+  ['hardlink-outside',[{path:'link',type:'1',link:'../outside'}]],
+  ['pax-path',[{path:'pax',type:'x',data:paxField('path','../escaped')},{path:'safe',data:'bad'}]],
+  ['pax-link',[{path:'pax',type:'x',data:paxField('linkpath','/outside')},{path:'safe',type:'2',link:'safe'}]],
+  ['link-child',[{path:'folder',type:'2',link:'inside'},{path:'folder/file',data:'bad'}]],
+  ['duplicate',[{path:'file',data:'ok'},{path:'file',type:'2',link:'inside'}]],
+  ['repository-metadata',[{path:'.git/config',data:'bad'}]],
+]) {
+  test(`tar rejects ${name} before extracting any member`, async()=>{
+    const archive=tarFixture('reject-'+name,[{path:'sentinel',data:'must not extract'},...entries])
+    const dest=join(root,'reject-'+name+'-output')
+    await assert.rejects(host.extractArchive(archive,dest))
+    assert.equal(existsSync(join(dest,'sentinel')),false)
+  })
+}
+
+
+test('tar refuses existing destination symlinks before writing any file', async()=>{
+  const outside=join(root,'outside-links'); mkdirSync(outside)
+  const dest=join(root,'existing-link-output'); mkdirSync(dest)
+  symlinkSync(outside,join(dest,'folder'))
+  const archive=tarFixture('existing-link',[{path:'sentinel',data:'no write'},{path:'folder/file',data:'bad'}])
+  await assert.rejects(host.extractArchive(archive,dest))
+  assert.equal(existsSync(join(dest,'sentinel')),false)
+  assert.equal(existsSync(join(outside,'file')),false)
 })

@@ -373,12 +373,23 @@ window.__ModuleLoader__.load({
       ['diag.backendRunning', '运行中', 'Running'],
       ['diag.backendStopped', '未运行', 'Stopped'],
       ['diag.backendNoBundle', '未配置安装包地址', 'Bundle URL is not configured'],
-      ['diag.backendConfirmInstall', '将下载并解压后端包到 {dir}，macOS arm64 核心约 534MiB，继续？', 'Download and extract the backend bundle into {dir} (about 534MiB on macOS arm64). Continue?'],
+      ['diag.backendConfirmInstall', '将下载并安装核心包到 {dir}，macOS arm64 约 464MiB，继续？', 'Download and install the core package into {dir} (about 464MiB on macOS arm64). Continue?'],
       ['diag.backendConfirmStop', '停止后端会中断正在执行的任务，继续？', 'Stopping the backend interrupts running tasks. Continue?'],
       ['diag.backendOas', 'OAS', 'OAS'],
       ['diag.backendOasReady', '已包含', 'Included'],
       ['diag.backendOasMissing', '缺失', 'Missing'],
-      ['diag.backendUpdateHint', '安装包与当前源码环境分别管理。已完整安装的核心暂不支持直接覆盖升级。', 'The portable package is managed separately from source. In-place upgrades of a complete core installation are not supported.'],
+      ['diag.backendStarted', '后端已安装并启动', 'Backend installed and started'],
+      ['diag.coreVersion', '核心包版本', 'Core version'],
+      ['diag.oasVersion', '内置 OAS', 'Bundled OAS'],
+      ['diag.oasUpstream', '上游', 'upstream'],
+      ['diag.checkCore', '检查更新', 'Check for updates'],
+      ['diag.coreChecking', '检查中…', 'Checking…'],
+      ['diag.coreUpToDate', '核心包已是最新', 'Core is up to date'],
+      ['diag.coreUpdateAvailable', '发现核心包 {version}', 'Core {version} is available'],
+      ['diag.coreUpdate', '更新到 {version}', 'Update to {version}'],
+      ['diag.coreUpdateHint', 'OAS 随核心包更新；不操作 Git、分支或 stash。', 'OAS updates with the core package; no Git, branches, or stashes.'],
+      ['diag.coreCheckHint', '可以检查是否有新的核心包；更新不会覆盖配置、计划或历史。', 'Check for a newer core package; updates keep config, plans, and history.'],
+      ['diag.backendUpdateHint', 'OAS 随核心包更新；首次安装或更新后会自动启动。', 'OAS updates with the core package; it starts automatically after install or update.'],
       ['diag.modules', '可选组件', 'Optional components'],
       ['diag.modulesDesc', '核心已包含 OAS 日常功能；需要本地 LLM 时再装这个运行时，不装不影响任务。', 'The core already runs OAS. Install this runtime only if you need the local LLM.'],
       ['diag.moduleLocalLlm', '本地 LLM 运行时', 'Local LLM runtime'],
@@ -646,6 +657,7 @@ window.__ModuleLoader__.load({
       const [oasResult, setOasResult] = useState(null)
       const [oasRuntimeCheck, setOasRuntimeCheck] = useState(null)
       const [oasRuntimeResult, setOasRuntimeResult] = useState(null)
+      const [coreCheck, setCoreCheck] = useState(null)
       const [exportResult, setExportResult] = useState(null)
       const [maintenanceResult, setMaintenanceResult] = useState(null)
       const toastTimer = useRef(0)
@@ -811,7 +823,8 @@ window.__ModuleLoader__.load({
       }), [loadAll, notify, runAction])
 
       const stopDevice = useCallback((serial, executionId) => runAction('stop:' + serial, async () => {
-        const path = /^[a-f0-9]{32}$/.test(executionId || '') ? `/executions/${enc(executionId)}/stop` : `/devices/${enc(serial)}/stop`
+        if (!/^[a-f0-9]{32}$/.test(executionId || '')) throw new Error(tRef.current('execution.statusUnavailable'))
+        const path = `/executions/${enc(executionId)}/stop`
         const result = await postJSON(path)
         notify(result.message || tRef.current('toast.stopped'))
         await loadAll()
@@ -1117,8 +1130,35 @@ window.__ModuleLoader__.load({
         return true
       }), [loadAll, notify, runAction])
 
+      const checkCoreUpdate = useCallback(() => runAction('backend-runtime:check', async () => {
+        const result = await requestJSON(BACKEND_RUNTIME + '/check')
+        setCoreCheck(result)
+        if (result.ok === false) throw new Error(result.message || tRef.current('toast.failed'))
+        notify(result.message || tRef.current('diag.coreUpToDate'))
+        await loadAll()
+        return true
+      }), [loadAll, notify, runAction])
+
       const installBackendRuntime = useCallback(() => runAction('backend-runtime:install', async () => {
-        const started = await requestJSON(BACKEND_RUNTIME + '/install', {
+        let target = null
+        try {
+          const check = await requestJSON(BACKEND_RUNTIME + '/check')
+          setCoreCheck(check)
+          if (check.ok !== false && check.target) target = check.target
+        } catch { /* index unavailable; fall back to configured bundle */ }
+        const query = target
+          ? '?url=' + encodeURIComponent(target.url)
+            + '&sha256=' + encodeURIComponent(target.sha256)
+            + '&version=' + encodeURIComponent(target.coreVersion)
+          : ''
+        const before = await requestJSON(BACKEND_RUNTIME + '/status')
+        if (before.running) {
+          const stopped = await requestJSON(BACKEND_RUNTIME + '/stop', {
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}),
+          })
+          if (stopped.ok === false) throw new Error(stopped.message || tRef.current('toast.failed'))
+        }
+        const started = await requestJSON(BACKEND_RUNTIME + '/install' + query, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({}),
@@ -1132,10 +1172,28 @@ window.__ModuleLoader__.load({
           if (!mounted.current) return false
           setData((prev) => Object.assign({}, prev, { backendRuntime: status }))
           if (status.installError) throw new Error(status.installError)
-          if (status.installed) break
+          if (!status.installing && status.installed
+            && (!target || !target.coreVersion || status.coreVersion === target.coreVersion)
+            && (target || status.installed !== before.installed)) break
         }
         if (!status || !status.installed) throw new Error('后端安装超时，请查看安装日志')
-        notify(tRef.current('diag.backendStopped'))
+        // First install and updates both start immediately; failed start restores the previous core.
+        const running = await requestJSON(BACKEND_RUNTIME + '/start', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (running.ok === false) {
+          let rolledBack = false
+          try {
+            const rollback = await requestJSON(BACKEND_RUNTIME + '/rollback', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}),
+            })
+            rolledBack = rollback.ok !== false
+          } catch { /* keep original error */ }
+          throw new Error((rolledBack ? '新版启动失败，已恢复上一版：' : '新版启动失败：') + (running.message || ''))
+        }
+        notify(tRef.current('diag.backendStarted'))
         await loadAll()
         return true
       }), [loadAll, notify, runAction])
@@ -1237,7 +1295,7 @@ window.__ModuleLoader__.load({
         previewSchedule, createSchedule, toggleSchedule, runSchedule, deleteSchedule,
         tickNow, warmAll, exportDiagnose, checkOasUpdate, previewOasUpdate, applyOasUpdate, rollbackOas,
         createBaseline, restoreBaseline, maintenanceResult, installOasRuntime, checkOasRuntime, updateOasRuntime,
-        installBackendRuntime, startBackendRuntime, stopBackendRuntime, restartBackendRuntime,
+        installBackendRuntime, startBackendRuntime, stopBackendRuntime, restartBackendRuntime, checkCoreUpdate, coreCheck,
         installModule, removeModule,
         refreshScreenshot,
       }
@@ -1859,7 +1917,7 @@ window.__ModuleLoader__.load({
                       disabled: c.isBusy('warm:' + device.serial),
                     }, c.isBusy('warm:' + device.serial) ? t('common.loading') : t('actions.warm')),
                     run ? h('button', {
-                      type: 'button', className: 'onm-btn danger small', onClick: () => c.stopDevice(device.serial),
+                      type: 'button', className: 'onm-btn danger small', onClick: () => c.stopDevice(device.serial, c.data.executions.find(job => job.device === device.serial && isActiveExecution(job))?.id || c.data.running[device.serial]?.execution_id),
                       disabled: c.isBusy('stop:' + device.serial),
                     }, t('actions.stopTask')) : null,
                   ),
@@ -1944,6 +2002,9 @@ window.__ModuleLoader__.load({
       const portableCanInstall = portable.canInstall === true
       const portableInstalling = portable.installing === true
       const portableError = portable.installError || ''
+      // Product mode: no source backend available. Product users only see the
+      // core package card; source developers keep every advanced tool.
+      const productMode = !(c.data.backend && c.data.backend.canStart === true && !portableInstalled)
       const modulesState = c.data.modules || {}
       const modules = modulesState.modules || []
       const autostart = (c.data.autostart && c.data.autostart.config) || {}
@@ -2083,15 +2144,34 @@ window.__ModuleLoader__.load({
                   : t('diag.backendNotInstalled')),
           ),
           h('dl', { className: 'onm-kv' },
-            h('dt', null, t('diag.backendPlatform')),
-            h('dd', { className: 'onm-mono' }, portable.platform || '—'),
-            h('dt', null, t('diag.backendDir')),
-            h('dd', { className: 'onm-mono' }, portable.backendDir || '—'),
-            h('dt', null, t('diag.backendBundle')),
-            h('dd', { className: 'onm-mono' }, portable.consoleBundleUrl || '—'),
+            h('dt', null, t('diag.coreVersion')),
+            h('dd', { className: 'onm-mono' }, portable.coreVersion || '—'),
+            h('dt', null, t('diag.oasVersion')),
+            h('dd', { className: 'onm-mono' },
+              (portable.oasVersion || '—') + (portable.oasUpstreamVersion ? ' · ' + t('diag.oasUpstream') + ' ' + String(portable.oasUpstreamVersion).slice(0, 8) : '')),
             h('dt', null, t('diag.backendOas')),
             h('dd', null, portable.oasInstalled ? t('diag.backendOasReady') : t('diag.backendOasMissing')),
+            !productMode ? h('dt', null, t('diag.backendPlatform')) : null,
+            !productMode ? h('dd', { className: 'onm-mono' }, portable.platform || '—') : null,
+            !productMode ? h('dt', null, t('diag.backendDir')) : null,
+            !productMode ? h('dd', { className: 'onm-mono' }, portable.backendDir || '—') : null,
+            !productMode ? h('dt', null, t('diag.backendBundle')) : null,
+            !productMode ? h('dd', { className: 'onm-mono' }, portable.consoleBundleUrl || '—') : null,
           ),
+          productMode
+            ? h('div', { className: 'onm-row-sub', style: { marginTop: '8px' } }, t('diag.coreUpdateHint'))
+            : null,
+          c.coreCheck
+            ? h('div', { className: 'onm-notice ' + (c.coreCheck.compatible === false ? 'fail' : (c.coreCheck.updateAvailable ? 'ok' : '')), style: { marginTop: '10px' }, role: 'status' },
+                c.coreCheck.compatible === false
+                  ? c.coreCheck.message
+                  : (c.coreCheck.updateAvailable
+                      ? tf(t, 'diag.coreUpdateAvailable', { version: c.coreCheck.latest })
+                      : t('diag.coreUpToDate')))
+            : null,
+          productMode && portable.installed && !c.coreCheck
+            ? h('div', { className: 'onm-row-sub', style: { marginTop: '8px' } }, t('diag.coreCheckHint'))
+            : null,
           !portable.consoleBundleUrl
             ? h('div', { className: 'onm-notice fail', style: { marginTop: '12px' } }, t('diag.backendNoBundle'))
             : null,
@@ -2099,6 +2179,10 @@ window.__ModuleLoader__.load({
             ? h('div', { className: 'onm-notice fail', style: { marginTop: '12px' } }, portableError)
             : null,
           h('div', { className: 'onm-hstack', style: { marginTop: '12px' } },
+            h('button', {
+              type: 'button', className: 'onm-btn small', onClick: c.checkCoreUpdate,
+              disabled: c.isBusy('backend-runtime:check') || portableInstalling,
+            }, c.isBusy('backend-runtime:check') ? t('diag.coreChecking') : t('diag.checkCore')),
             (!portableInstalled && (portableCanInstall || portableInstalling || c.isBusy('backend-runtime:install')))
               ? h('button', {
                   type: 'button', className: 'onm-btn primary small',
@@ -2109,6 +2193,12 @@ window.__ModuleLoader__.load({
                   },
                   disabled: c.isBusy('backend-runtime:install') || portableInstalling,
                 }, (c.isBusy('backend-runtime:install') || portableInstalling) ? t('diag.backendInstalling') : t('diag.backendInstall'))
+              : null,
+            (portableInstalled && c.coreCheck?.updateAvailable && c.coreCheck?.compatible !== false && !portableInstalling)
+              ? h('button', {
+                  type: 'button', className: 'onm-btn primary small', onClick: c.installBackendRuntime,
+                  disabled: c.isBusy('backend-runtime:install') || portableInstalling || c.isBusy('backend-runtime:check'),
+                }, tf(t, 'diag.coreUpdate', { version: c.coreCheck.latest }))
               : null,
             (portableInstalled && !portableRunning && c.offline)
               ? h('button', {
@@ -2291,6 +2381,19 @@ window.__ModuleLoader__.load({
 
       ]
       const byKey = Object.fromEntries(sections.filter(Boolean).map(section => [section.key, section]))
+      if (productMode) {
+        return [
+          h('div', { key: 'title' }, h('h2', { className: 'onm-page-title' }, t('diag.title')),
+            h('p', { className: 'onm-page-desc' }, t('diag.simpleHint'))),
+          h('div', { key: 'connection', className: 'onm-diagnostic-status', role: 'status' },
+            h(Badge, { tone: health.ok ? 'ok' : 'bad' }, health.ok ? t('common.online') : t('diag.healthOffline')),
+            h('span', null, kind === 'source' ? t('diag.sourceInstance') : kind === 'portable' ? t('diag.portableInstance') : t('diag.unknownInstance'))),
+          byKey.offline, byKey['maintenance-result'],
+          maintenanceBusy ? h('p', { key: 'maintenance-progress', className: 'onm-notice', role: 'status' }, t('diag.maintenanceBusy')) : null,
+          portableError ? h('div', { key: 'install-error', className: 'onm-notice fail', role: 'status' }, portableError) : null,
+          byKey['backend-runtime'],
+        ]
+      }
       const groups = { summary: 'diag.summary', oas: 'diag.maintainOas', environment: 'diag.environment', advanced: 'diag.advanced' }
       const items = {
         oas: [['source-update', 'diag.maintainOas'], ['baseline', 'diag.baseline'], ['oas-runtime', 'diag.mirrorTitle']],

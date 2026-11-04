@@ -30,9 +30,11 @@ import {
   chmodSync,
   closeSync,
   fstatSync,
+  lstatSync,
   readSync,
   mkdtempSync,
   copyFileSync,
+  cpSync,
   createReadStream,
   createWriteStream,
   existsSync,
@@ -50,11 +52,12 @@ import {
 import { get as httpGet, request as httpRequest } from 'node:http'
 import { get as httpsGet, request as httpsRequest } from 'node:https'
 import { homedir } from 'node:os'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve, posix, sep } from 'node:path'
 import { createConnection } from 'node:net'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
+import { createGunzip } from 'node:zlib'
 
 export const inject = ['webServer']
 
@@ -65,6 +68,8 @@ const DEFAULT_CONSOLE_URL = 'http://127.0.0.1:8787'
 const DEFAULT_OAS_MIRROR = 'https://github.com/githubdadada/OnmyojiAutoScript.git'
 const DEFAULT_BACKEND_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'backend')
 const DEFAULT_CONSOLE_BUNDLE = 'https://github.com/githubdadada/onmyoji-backend/releases/latest/download/console-backend-{platform}.tar.gz'
+const DEFAULT_CORE_INDEX = 'https://github.com/githubdadada/onmyoji-backend/releases/download/core-index/core-index.json'
+const PLUGIN_VERSION = '1.5.2'
 const DEFAULT_BASELINE_DIR = join(homedir(), '.dsh', 'onmyoji-oas', 'baselines')
 const CORE_BUILDS = { 'darwin-arm64': { version: '1.5.0', sha256: 'db5a33ca70e05ccbe7eb1336514a65b6f48d083fd3c45d130f437bab738c1587' } }
 const installStates = new Map()
@@ -183,6 +188,12 @@ function resolveSettings(rowConfig) {
       || rowConfig?.consoleBundleUrl
       || DEFAULT_CONSOLE_BUNDLE,
   ).trim().replace(/\{platform\}/g, `${process.platform}-${process.arch}`)
+  const coreIndexUrl = String(
+    file.coreIndexUrl
+      || process.env.ONMYOJI_CORE_INDEX
+      || rowConfig?.coreIndexUrl
+      || DEFAULT_CORE_INDEX,
+  ).trim()
   const localLlmUrl = String(
     file.localLlmUrl
       || process.env.ONMYOJI_LOCAL_LLM_URL
@@ -192,7 +203,7 @@ function resolveSettings(rowConfig) {
   return {
     consoleUrl, basePath, consoleHref, port, root,
     oasRoot, oasMirrorUrl, oasBranch, baselineDir,
-    backendDir, consoleBundleUrl, localLlmUrl,
+    backendDir, consoleBundleUrl, localLlmUrl, coreIndexUrl,
     consoleBundleSha256: String(file.consoleBundleSha256 || process.env.ONMYOJI_CONSOLE_SHA256 || rowConfig?.consoleBundleSha256 || CORE_BUILDS[`${process.platform}-${process.arch}`]?.sha256 || ''),
     configPath: CONFIG_PATH,
   }
@@ -623,9 +634,7 @@ async function restoreBaseline(settings, name) {
     if (!applied.ok) warnings.push(`工作树 patch 应用失败：${applied.stderr || applied.message}`)
   }
   if (manifest.untracked_archive && existsSync(manifest.untracked_archive)) {
-    await checkArchiveNames(manifest.untracked_archive)
-    const extracted = await execText('tar', ['-xzf', manifest.untracked_archive, '-C', target], 120000)
-    if (!extracted.ok) warnings.push(`未跟踪文件恢复失败：${extracted.stderr || extracted.message}`)
+    await extractArchive(manifest.untracked_archive, target)
   }
 
   return {
@@ -844,19 +853,128 @@ async function downloadToFile(source, dest, timeoutMs = 1800000) {
   return downloadHttp(source, dest, 0, timeoutMs)
 }
 
-async function checkArchiveNames(archive) {
-  const listing = await execText('tar', ['-tf', archive], 300000)
-  if (!listing.ok) throw new Error('归档目录读取失败，未开始解压')
-  for (const raw of listing.stdout.split('\n')) {
-    const name = raw.replaceAll('\\', '/')
-    if (name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.split('/').includes('..')) {
-      throw new Error('归档含不安全路径，未开始解压')
+function archivePath(raw, base = '') {
+  if (!raw || /[\\:\x00-\x1f]/.test(raw) || raw.startsWith('/')) throw new Error('归档含不安全路径')
+  if (process.platform === 'win32' && raw.split('/').some(part => part !== '.' && part !== '..' && (/[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)))) throw new Error('归档含 Windows 不安全名称: ' + JSON.stringify(raw))
+  const name = posix.normalize(posix.join(base, raw))
+  if (name === '..' || name.startsWith('../') || name.split('/').some(part => part.toLowerCase().replace(/[. ]+$/, '') === '.git')) throw new Error('归档路径越界或覆盖仓库元数据')
+  return name.replace(/\/$/, '')
+}
+
+async function checkArchiveNames(archive, dest) {
+  if (dest && existsSync(dest) && lstatSync(dest).isSymbolicLink()) throw new Error('解压目标不能是符号链接')
+  // ZIP is used only by the Windows uv bootstrap. Its separate system-tar name
+  // check remains; this parser covers core/module/baseline tar payloads.
+  if (archive.toLowerCase().endsWith('.zip')) {
+    const listing = await execText('tar', ['-tf', archive], 300000)
+    if (!listing.ok) throw new Error('归档目录读取失败，未开始解压')
+    for (const name of listing.stdout.split('\n').filter(Boolean)) archivePath(name)
+    return
+  }
+  const input = createReadStream(archive)
+  const stream = /\.(gz|tgz)$/i.test(archive) ? input.pipe(createGunzip()) : input
+  input.on('error', error => stream.destroy(error))
+  let pending = Buffer.alloc(0), remaining = 0, metadata = null, chunks = [], zeros = 0
+  let local = {}, global = {}, longName = '', longLink = ''
+  const members = new Map()
+  const string = bytes => bytes.toString('utf8').split('\0')[0]
+  const number = bytes => {
+    const value = string(bytes).trim()
+    if (!/^[0-7]*$/.test(value)) throw new Error('归档数字字段无效')
+    const parsed = parseInt(value || '0', 8)
+    if (!Number.isSafeInteger(parsed)) throw new Error('归档大小无效')
+    return parsed
+  }
+  const pax = data => {
+    const fields = {}; let offset = 0
+    while (offset < data.length) {
+      const space = data.indexOf(32, offset)
+      const size = Number(data.subarray(offset, space).toString())
+      if (space < offset || !Number.isSafeInteger(size) || size <= space-offset+1 || offset+size > data.length || data[offset+size-1] !== 10) throw new Error('PAX 记录无效')
+      const record = data.subarray(space+1, offset+size-1).toString('utf8'), eq = record.indexOf('=')
+      if (eq < 1) throw new Error('PAX 字段无效')
+      const key = record.slice(0,eq)
+      if (/sparse|SCHILY\.(filetype|realsize)|hdrcharset/i.test(key)) throw new Error('不支持的归档扩展')
+      fields[key] = record.slice(eq+1); offset += size
+    }
+    return fields
+  }
+  const finishMetadata = () => {
+    const data = Buffer.concat(chunks)
+    if (metadata === 'x') local = {...local, ...pax(data)}
+    else if (metadata === 'g') global = {...global, ...pax(data)}
+    else if (metadata === 'L') longName = string(data)
+    else if (metadata === 'K') longLink = string(data)
+    metadata = null; chunks = []
+  }
+  try {
+    for await (const chunk of stream) {
+      pending = Buffer.concat([pending, chunk])
+      while (pending.length >= 512) {
+        const block = pending.subarray(0,512); pending = pending.subarray(512)
+        if (remaining > 0) {
+          if (metadata) chunks.push(Buffer.from(block.subarray(0,Math.min(remaining,512))))
+          remaining = Math.max(0,remaining-512)
+          if (!remaining && metadata) finishMetadata()
+          continue
+        }
+        if (block.every(byte=>byte===0)) { zeros++; continue }
+        if (zeros) throw new Error('归档结束标记后有额外内容')
+        const checksum = number(block.subarray(148,156))
+        let sum = 256
+        for(let i=0;i<512;i++) if(i<148 || i>=156) sum+=block[i]
+        if(sum!==checksum) throw new Error('归档头校验失败')
+        const type = String.fromCharCode(block[156] || 48)
+        const size = number(block.subarray(124,136))
+        if ('xgLK'.includes(type)) {
+          if(size>1048576) throw new Error('归档元数据过大')
+          metadata=type; remaining=size
+          if(!size) finishMetadata()
+          continue
+        }
+        if(!['0','1','2','5'].includes(type)) throw new Error('归档含不支持的文件类型')
+        const attrs = {...global,...local}
+        if(attrs.size !== undefined && Number(attrs.size)!==size) throw new Error('PAX 大小覆盖不受支持')
+        const prefix = string(block.subarray(345,500))
+        const name = archivePath(attrs.path || longName || (prefix ? prefix+'/' : '')+string(block.subarray(0,100)))
+        const link = attrs.linkpath || longLink || string(block.subarray(157,257))
+        if(members.has(name) && !(type==='5' && members.get(name).type==='5')) throw new Error('归档含重复成员')
+        members.set(name,{type, target: ['1','2'].includes(type) ? archivePath(link, type==='2'?posix.dirname(name):'') : null})
+        local={}; longName=''; longLink=''; remaining=size
+      }
+    }
+    if(remaining || pending.length || zeros<2 || metadata || Object.keys(local).length || longName || longLink) throw new Error('归档不完整')
+  } finally { input.destroy(); stream.destroy() }
+  for(const [name, member] of members) {
+    const parts = name.split('/')
+    for(let i=1;i<parts.length;i++) {
+      const ancestor=members.get(parts.slice(0,i).join('/'))
+      if(ancestor && ancestor.type!=='5') throw new Error('归档成员经过链接或文件')
+    }
+    if(member.type==='1' && members.get(member.target)?.type!=='0') throw new Error('硬链接必须指向包内普通文件')
+    if(member.type==='2') {
+      const seen=new Set([name]); let target=member.target
+      while(members.get(target)?.type==='2') {
+        if(seen.has(target)) throw new Error('归档含循环链接')
+        seen.add(target); target=members.get(target).target
+      }
+      // Link targets through another symlink directory are ambiguous across tar implementations.
+      const targetParts=target.split('/')
+      for(let i=1;i<targetParts.length;i++) if(['1','2'].includes(members.get(targetParts.slice(0,i).join('/'))?.type)) throw new Error('链接目标经过其他链接')
+    }
+    if(dest) {
+      let current=resolve(dest)
+      for(const part of parts) {
+        current=join(current,part)
+        try { if(lstatSync(current).isSymbolicLink()) throw new Error('解压目标已有符号链接') }
+        catch(error) { if(error.code!=='ENOENT') throw error }
+      }
     }
   }
 }
 
 async function extractArchive(archive, dest) {
-  await checkArchiveNames(archive)
+  await checkArchiveNames(archive, dest)
   mkdirSync(dest, { recursive: true })
   const lower = archive.toLowerCase()
   const isZip = lower.endsWith('.zip')
@@ -957,24 +1075,45 @@ async function runUv(uv, args, logFile, timeoutMs, extraEnv = {}) {
   return result
 }
 
+function sameRealPath(left, right) {
+  try {
+    return realpathSync(left) === realpathSync(right)
+  } catch {
+    return resolve(left) === resolve(right)
+  }
+}
+
 async function backendRuntimeStatus(settings) {
   const consoleDir = join(settings.backendDir, 'console')
   const runtimePython = process.platform === 'win32'
     ? join(settings.backendDir, 'runtime', 'python.exe')
     : join(settings.backendDir, 'runtime', 'bin', 'python3')
   const installed = existsSync(join(consoleDir, 'web', 'server.py')) && existsSync(runtimePython) && existsSync(join(settings.backendDir, 'installed.json'))
-  const oasInstalled = existsSync(join(consoleDir, 'OAS', '.git'))
-  const health = installed ? await probeHealth(settings) : { ok: false }
-  const running = Boolean(health.ok && (health.health?.instance
-    ? health.health.instance.kind === 'portable' && resolve(health.health.instance.root || '.') === resolve(consoleDir)
-    : await ownsPortablePort(settings)))
-  const state = installStates.get(settings.backendDir)
   let manifest
   try {
     manifest = JSON.parse(readFileSync(join(settings.backendDir, 'manifest.json'), 'utf8'))
   } catch {
     manifest = undefined
   }
+  let installedMeta = {}
+  try {
+    installedMeta = JSON.parse(readFileSync(join(settings.backendDir, 'installed.json'), 'utf8'))
+  } catch {
+    installedMeta = {}
+  }
+  const oasDir = join(consoleDir, 'OAS')
+  const gitOas = existsSync(join(oasDir, '.git'))
+  const bundledOas = existsSync(join(oasDir, 'tasks')) && Boolean(manifest?.oas_commit)
+  const oasInstalled = gitOas || bundledOas
+  const coreVersion = String(manifest?.core_version || installedMeta.version || '')
+  const oasVersion = String(manifest?.oas_commit || '')
+  const oasUpstreamVersion = String(manifest?.oas_upstream || '')
+  const product = manifest?.product === true
+  const health = installed ? await probeHealth(settings) : { ok: false }
+  const running = Boolean(health.ok && (health.health?.instance
+    ? health.health.instance.kind === 'portable' && sameRealPath(health.health.instance.root || '.', consoleDir)
+    : await ownsPortablePort(settings)))
+  const state = installStates.get(settings.backendDir)
   return {
     ok: true,
     backendDir: settings.backendDir,
@@ -982,6 +1121,12 @@ async function backendRuntimeStatus(settings) {
     runtimePython,
     installed,
     oasInstalled,
+    oasGit: gitOas,
+    product,
+    coreVersion,
+    oasVersion,
+    oasUpstreamVersion,
+    backup: installedMeta.backup || '',
     running,
     connectedInstance: health.health?.instance || null,
     installing: Boolean(state && state.running),
@@ -989,7 +1134,7 @@ async function backendRuntimeStatus(settings) {
     platform: `${process.platform}-${process.arch}`,
     consoleBundleUrl: settings.consoleBundleUrl,
     oasMirrorUrl: settings.oasMirrorUrl,
-    canInstall: !installed && !(state && state.running) && Boolean(settings.consoleBundleUrl) && /^[a-f0-9]{64}$/i.test(settings.consoleBundleSha256 || ''),
+    canInstall: !installed && !(state && state.running) && Boolean(settings.consoleBundleUrl) && (/^[a-f0-9]{64}$/i.test(settings.consoleBundleSha256 || '') || Boolean(settings.coreIndexUrl)),
     manifest,
     log: tailFile(join(settings.backendDir, 'install.log'), 8000),
     message: installed
@@ -998,30 +1143,82 @@ async function backendRuntimeStatus(settings) {
   }
 }
 
-async function installBackendRuntimeAsync(settings) {
-  if (!/^[a-f0-9]{64}$/i.test(settings.consoleBundleSha256 || '')) throw new Error('缺少可信的核心包 SHA256；请更新插件或配置 consoleBundleSha256')
+async function fetchCoreIndex(settings) {
+  const platform = `${process.platform}-${process.arch}`
+  if (!settings.coreIndexUrl) throw new Error('未配置核心包索引地址')
+  mkdirSync(settings.backendDir, { recursive: true })
+  const temp = join(settings.backendDir, '.core-index.json')
+  try {
+    await downloadToFile(settings.coreIndexUrl, temp)
+    const data = JSON.parse(readFileSync(temp, 'utf8'))
+    const entry = data?.platforms?.[platform] || data?.stable?.[platform] || data?.[platform]
+    if (!entry) throw new Error(`索引中没有 ${platform} 的核心包`)
+    const coreVersion = String(entry.coreVersion || entry.version || '')
+    if (!/^[a-f0-9]{64}$/i.test(String(entry.sha256 || ''))) throw new Error('索引中的核心包 SHA256 无效')
+    if (!entry.url) throw new Error('索引中的核心包下载地址缺失')
+    return {
+      platform,
+      coreVersion,
+      url: String(entry.url),
+      mirror: String(entry.mirror || ''),
+      sha256: String(entry.sha256).toLowerCase(),
+      size: Number(entry.size || 0),
+      oasCommit: String(entry.oasCommit || ''),
+      upstreamCommit: String(entry.upstreamCommit || ''),
+      minPlugin: String(entry.minPlugin || ''),
+      buildSource: String(entry.buildSource || ''),
+    }
+  } finally {
+    rmSync(temp, { force: true })
+  }
+}
+
+async function coreUpdateStatus(settings) {
+  const status = await backendRuntimeStatus(settings)
+  const index = await fetchCoreIndex(settings)
+  const current = status.coreVersion || ''
+  const updateAvailable = Boolean(index.coreVersion && index.coreVersion !== current)
+  const compatible = !index.minPlugin || versionAtLeast(PLUGIN_VERSION, index.minPlugin)
+  return {
+    ok: true,
+    current,
+    latest: index.coreVersion,
+    updateAvailable,
+    compatible,
+    target: index,
+    status,
+    message: compatible
+      ? (updateAvailable ? `发现核心包 ${index.coreVersion}` : '核心包已是最新')
+      : `需要插件 ${index.minPlugin} 或更高版本`,
+  }
+}
+
+async function installBackendRuntimeAsync(settings, override = {}) {
+  const bundleUrl = String(override.url || settings.consoleBundleUrl || '').trim()
+  const expectedSha = String(override.sha256 || settings.consoleBundleSha256 || '').trim()
+  if (!/^[a-f0-9]{64}$/i.test(expectedSha)) throw new Error('缺少可信的核心包 SHA256；请更新索引或配置 consoleBundleSha256')
+  if (!bundleUrl) throw new Error('缺少核心包下载地址')
   mkdirSync(settings.backendDir, { recursive: true })
   const current = await backendRuntimeStatus(settings)
-  if (current.installed) return { ...current, message: '后端已安装' }
+  if (current.installed && !override.url) return { ...current, message: '后端已安装' }
   const stage = mkdtempSync(join(settings.backendDir, '.core-stage-'))
   const archive = join(stage, 'download.tar.gz')
   const content = join(stage, 'content')
   const entries = ['console', 'runtime', 'platform-tools', 'run.sh', 'manifest.json', 'installed.json']
+  const preserve = ['console/onmyoji_agent.db', 'console/Qwen_Qwen2.5-1.5B-Instruct', 'console/data', 'console/llm_config.json']
   const movedOld = [], movedNew = []
   let backup
   try {
     logRuntime(settings.backendDir, 'download core bundle')
-    await downloadToFile(settings.consoleBundleUrl, archive)
+    await downloadToFile(bundleUrl, archive)
     const hash = await sha256File(archive)
-    if (hash.toLowerCase() !== settings.consoleBundleSha256.toLowerCase()) throw new Error('核心包 SHA256 校验失败，未修改已有安装')
+    if (hash.toLowerCase() !== expectedSha.toLowerCase()) throw new Error('核心包 SHA256 校验失败，未修改已有安装')
     logRuntime(settings.backendDir, 'verify and extract core bundle')
     await extractArchive(archive, content)
     const manifest = JSON.parse(readFileSync(join(content, 'manifest.json'), 'utf8'))
     if (manifest.platform !== `${process.platform}-${process.arch}`) throw new Error('核心包平台不匹配')
     const python = process.platform === 'win32' ? join(content, 'runtime', 'python.exe') : join(content, 'runtime', 'bin', 'python3')
     if (!existsSync(python) || !existsSync(join(content, 'console', 'web', 'server.py'))) throw new Error('核心包缺少 Python 或控制台入口')
-    writeFileSync(join(content, 'installed.json'), JSON.stringify({ platform: manifest.platform, sha256: hash,
-      version: CORE_BUILDS[manifest.platform]?.version || manifest.version || 'unknown', installed_at: new Date().toISOString() }, null, 2))
     backup = join(settings.backendDir, 'backups', 'core-' + Date.now())
     mkdirSync(backup, { recursive: true })
     for (const entry of entries) {
@@ -1030,8 +1227,30 @@ async function installBackendRuntimeAsync(settings) {
       const next = join(content, entry)
       if (existsSync(next)) { renameSync(next, old); movedNew.push(entry) }
     }
-    logRuntime(settings.backendDir, 'core installation committed; previous files retained in backups')
-    return { ...(await backendRuntimeStatus(settings)), ok: true, message: '核心包已校验并安装；原文件保留在 backups', backup }
+    // User data lives in the console directory in some versions. Carry it
+    // across the program replacement; never overwrite it with the new package.
+    for (const rel of preserve) {
+      const oldPreserved = join(backup, rel)
+      const nextPreserved = join(settings.backendDir, rel)
+      if (existsSync(oldPreserved) && !existsSync(nextPreserved)) {
+        mkdirSync(dirname(nextPreserved), { recursive: true })
+        cpSync(oldPreserved, nextPreserved, { recursive: true, force: true })
+      }
+    }
+    const coreVersion = String(override.version || manifest.core_version || CORE_BUILDS[manifest.platform]?.version || manifest.version || 'unknown')
+    writeFileSync(join(settings.backendDir, 'installed.json'), JSON.stringify({
+      platform: manifest.platform,
+      sha256: hash,
+      version: coreVersion,
+      core_version: coreVersion,
+      oas_commit: manifest.oas_commit || '',
+      upstream_commit: manifest.oas_upstream || '',
+      product: manifest.product === true,
+      backup,
+      installed_at: new Date().toISOString(),
+    }, null, 2))
+    logRuntime(settings.backendDir, `core ${coreVersion} installation committed; previous files retained in backups`)
+    return { ...(await backendRuntimeStatus(settings)), ok: true, message: `核心包 ${coreVersion} 已校验并安装；原文件保留在 backups`, backup }
   } catch (error) {
     const recovery = []
     for (const entry of movedNew.reverse()) {
@@ -1045,7 +1264,30 @@ async function installBackendRuntimeAsync(settings) {
   } finally { rmSync(stage, { recursive: true, force: true }) }
 }
 
-function beginBackendInstall(settings) {
+async function restoreBackendBackup(settings) {
+  const metaPath = join(settings.backendDir, 'installed.json')
+  let meta
+  try { meta = JSON.parse(readFileSync(metaPath, 'utf8')) } catch { throw new Error('没有可回滚的已安装记录') }
+  const backup = String(meta.backup || '')
+  if (!backup || !existsSync(backup) || !resolve(backup).startsWith(resolve(join(settings.backendDir, 'backups')) + sep)) {
+    throw new Error('没有可回滚的旧版程序备份')
+  }
+  try { await stopBackendRuntime(settings) } catch { /* not running */ }
+  const failed = join(settings.backendDir, 'backups', 'failed-core-' + Date.now())
+  mkdirSync(failed, { recursive: true })
+  const entries = ['console', 'runtime', 'platform-tools', 'run.sh', 'manifest.json', 'installed.json']
+  for (const entry of entries) {
+    const currentPath = join(settings.backendDir, entry)
+    if (existsSync(currentPath)) renameSync(currentPath, join(failed, entry))
+    const oldPath = join(backup, entry)
+    if (existsSync(oldPath)) renameSync(oldPath, currentPath)
+  }
+  logRuntime(settings.backendDir, 'restored previous core after failed start')
+  return { ...(await backendRuntimeStatus(settings)), ok: true, message: '新版启动失败，已恢复上一版' }
+}
+
+
+function beginBackendInstall(settings, override = {}) {
   const key = settings.backendDir
   if (runtimeOperations.has(key) || [...moduleStates.entries()].some(([id, state]) => id.startsWith(key + ':') && state.running)) throw new Error('已有维护操作，请稍后重试')
   const existing = installStates.get(key)
@@ -1054,7 +1296,7 @@ function beginBackendInstall(settings) {
   }
   const state = { running: true, error: '', started_at: Date.now() }
   installStates.set(key, state)
-  installBackendRuntimeAsync(settings)
+  installBackendRuntimeAsync(settings, override)
     .then(() => {
       state.running = false
       state.error = ''
@@ -1374,6 +1616,14 @@ async function handleBackendRuntime(req, res, settings) {
     sendJSON(res, 200, await backendRuntimeStatus(settings))
     return
   }
+  if (method === 'GET' && action === 'check') {
+    try {
+      sendJSON(res, 200, await coreUpdateStatus(settings))
+    } catch (error) {
+      sendJSON(res, 500, { ok: false, message: String(error?.message || error) })
+    }
+    return
+  }
   if (method === 'GET' && action === 'log') {
     sendJSON(res, 200, {
       ok: true,
@@ -1383,12 +1633,22 @@ async function handleBackendRuntime(req, res, settings) {
     return
   }
   if (method !== 'POST') {
-    sendJSON(res, 405, { ok: false, message: '仅支持 GET status/log 与 POST install/start/stop' })
+    sendJSON(res, 405, { ok: false, message: '仅支持 GET status/check/log 与 POST install/start/stop/rollback' })
     return
   }
   try {
     if (action === 'install') {
-      sendJSON(res, 200, beginBackendInstall(settings))
+      sendJSON(res, 200, beginBackendInstall(settings, {
+        url: url.searchParams.get('url') || '',
+        sha256: url.searchParams.get('sha256') || '',
+        version: url.searchParams.get('version') || '',
+      }))
+      return
+    }
+    if (action === 'rollback') {
+      if (runtimeOperations.has(settings.backendDir)) throw new Error('已有后端维护操作，请稍后重试')
+      runtimeOperations.add(settings.backendDir)
+      try { sendJSON(res, 200, await restoreBackendBackup(settings)) } finally { runtimeOperations.delete(settings.backendDir) }
       return
     }
     if (action === 'start') {

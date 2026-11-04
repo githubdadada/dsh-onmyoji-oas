@@ -24,10 +24,10 @@ function fixture(fetch = async () => ({ ok: true, text: async () => '{"ok":true}
   } } }
   const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8').replace(
     "    return {\n      inject: ['slots', 'locale'],",
-    "    window.audit = { useConsole, taskTarget, taskRunReason, executionRows, Tasks, TaskDetail, Plans, safeConsoleHref, TEXT, Diagnostics, Rail };\n    return {\n      inject: ['slots', 'locale'],",
+    "    window.audit = { useConsole, taskTarget, taskRunReason, executionRows, Tasks, TaskDetail, Plans, safeConsoleHref, TEXT, Diagnostics, Rail, Devices };\n    return {\n      inject: ['slots', 'locale'],",
   )
   vm.runInNewContext(source, { window, fetch, console, URL, AbortController, setTimeout, clearTimeout, setInterval: (callback, delay) => { timers.push({callback, delay}); return timers.length }, clearInterval: () => {} })
-  return { audit, effects, timers, renderRail: props => { cursor = 0; return audit.Rail(props) }, renderDiagnostics: props => { cursor = 0; return audit.Diagnostics(props) }, render: () => { cursor = 0; return audit.useConsole(key => key) } }
+  return { audit, effects, timers, renderDevices: props => { cursor = 0; return audit.Devices(props) }, renderRail: props => { cursor = 0; return audit.Rail(props) }, renderDiagnostics: props => { cursor = 0; return audit.Diagnostics(props) }, render: () => { cursor = 0; return audit.useConsole(key => key) } }
 }
 
 function nodes(tree) {
@@ -248,3 +248,21 @@ for (const surface of ['plugin', 'standalone']) {
     })
   }
 }
+
+
+test('device stop captures execution identity and refuses serial-only fallback', async()=>{
+  const requests=[]
+  const f=fixture(async (path,options={})=>{
+    if(options.method==='POST') requests.push(path)
+    return {ok:true,text:async()=>'{"ok":true}'}
+  })
+  await f.render().stopDevice('test')
+  assert.deepEqual(requests,[])
+  const calls=[], id='c'.repeat(32)
+  const c={data:{devices:[{serial:'test',online:true}],running:{test:{task_id:'test'}},catalog:[],
+    executions:[{id,device:'test',state:'preparing'}]},isBusy:()=>false,
+    stopDevice:(...args)=>calls.push(args)}
+  const tree=nodes(f.renderDevices({t:key=>key,c,draft:{serial:"",name:""},onDraft:()=>{}}))
+  tree.find(n=>n.type==='button' && n.children.includes('actions.stopTask')).props.onClick()
+  assert.deepEqual(calls,[['test',id]])
+})
